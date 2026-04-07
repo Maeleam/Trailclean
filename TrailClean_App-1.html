@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#2D6A4F">
+<title>TrailClean 🏔</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --forest:#2D6A4F;--leaf:#52B788;--lime:#B7E04A;
+  --bg:#F4F3EE;--card:#E2E0D8;--border:#C8C6BE;
+  --text:#1A1A18;--dim:#5A5A52;--muted:#8A8A82;
+  --amber:#E09020;--red:#CC3333;--purple:#6030A0;--teal:#108080;--gold:#C89818;
+  --nav:58px;
+}
+html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:15px}
+#app{height:100%;display:flex;flex-direction:column;overflow:hidden;max-width:480px;margin:0 auto;position:relative}
+.sc{display:none;flex:1;flex-direction:column;overflow:hidden}
+.sc.on{display:flex}
+.pg{flex:1;overflow-y:auto;overflow-x:hidden;padding-bottom:calc(var(--nav)+16px)}
+.pf{flex:1;overflow:hidden;display:flex;flex-direction:column}
+#nav{position:absolute;bottom:0;left:0;right:0;height:var(--nav);background:#fff;border-top:1px solid var(--border);display:none;z-index:100;box-shadow:0 -2px 10px rgba(0,0,0,.06)}
+.ni{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;background:none;border:none;color:var(--muted);font-size:9.5px;font-weight:500;cursor:pointer;padding:3px 1px}
+.ni.on{color:var(--forest)}
+.ni em{font-size:20px;font-style:normal;line-height:1}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:11px 16px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:opacity .15s}
+.btn:active{opacity:.8}
+.bp{background:var(--forest);color:#fff}
+.ba{background:var(--amber);color:#fff}
+.br{background:var(--red);color:#fff}
+.bs{background:var(--card);color:var(--text);border:1px solid var(--border)}
+.bw{width:100%}
+.bl{padding:13px 20px;font-size:15px}
+.btn:disabled{opacity:.35;pointer-events:none}
+.inp{width:100%;padding:12px 14px;border-radius:10px;border:1.5px solid var(--border);background:#fff;font-size:16px;font-family:inherit;outline:none}
+.inp:focus{border-color:var(--leaf)}
+.sh{background:#fff;border-radius:18px 18px 0 0;width:100%;padding:12px 16px 28px;max-height:90%;overflow-y:auto}
+.hdl{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px}
+.tg{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700}
+.pb{height:6px;background:var(--card);border-radius:4px;overflow:hidden}
+.pf2{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--leaf),var(--lime));transition:width .4s}
+#toast{position:absolute;top:12px;left:50%;transform:translateX(-50%);background:var(--text);color:#fff;padding:9px 18px;border-radius:22px;font-size:13px;font-weight:500;z-index:999;display:none;white-space:nowrap;box-shadow:0 4px 14px rgba(0,0,0,.2);max-width:90%;text-align:center}
+@keyframes ping{0%,100%{transform:scale(1);opacity:.7}50%{transform:scale(2);opacity:0}}
+@keyframes fd{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.leaflet-control-zoom{display:none!important}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ── AUTH ─────────────────────────────────────────────────────────── -->
+<div id="s-auth" class="sc on">
+  <div style="flex:1;background:var(--forest);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px">
+    <div style="font-size:52px;margin-bottom:8px">🏔️</div>
+    <h1 style="font-size:32px;font-weight:900;color:var(--lime);letter-spacing:-1px">TrailClean</h1>
+    <p style="color:#74C69D;font-size:14px;margin-top:4px;font-style:italic">Rando. Ramasse. Compte.</p>
+    <div style="background:#fff;border-radius:18px;padding:22px;width:100%;max-width:360px;margin-top:28px">
+      <div style="display:flex;gap:8px;margin-bottom:18px">
+        <button class="btn bp" id="tl" style="flex:1" onclick="aTab('l')">Connexion</button>
+        <button class="btn bs" id="tr" style="flex:1" onclick="aTab('r')">S'inscrire</button>
+      </div>
+      <div id="fu" style="margin-bottom:12px;display:none">
+        <label style="font-size:12px;font-weight:600;color:var(--dim);display:block;margin-bottom:4px">Pseudo</label>
+        <input class="inp" id="iu" type="text" placeholder="TonPseudo">
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:12px;font-weight:600;color:var(--dim);display:block;margin-bottom:4px">Email</label>
+        <input class="inp" id="ie" type="email" placeholder="toi@exemple.fr">
+      </div>
+      <div style="margin-bottom:18px">
+        <label style="font-size:12px;font-weight:600;color:var(--dim);display:block;margin-bottom:4px">Mot de passe</label>
+        <input class="inp" id="ip" type="password" placeholder="••••••••">
+      </div>
+      <button class="btn bp bw bl" onclick="doAuth()">Connexion</button>
+      <div style="text-align:center;margin-top:12px">
+        <button onclick="demo()" style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:8px">Continuer en mode démo →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MAP ──────────────────────────────────────────────────────────── -->
+<div id="s-map" class="sc">
+  <div class="pf">
+    <div id="leafmap" style="flex:1"></div>
+    <div style="padding:10px 14px;background:#fff;border-top:1px solid var(--border)">
+      <div style="display:flex;gap:8px">
+        <button class="btn bp bw" onclick="sAdd('collect')">📷 Ramasser</button>
+        <button class="btn ba bw" onclick="sAdd('signal')">⚠️ Signaler</button>
+      </div>
+    </div>
+  </div>
+  <div style="position:absolute;top:0;left:0;right:0;padding:10px 14px;background:linear-gradient(to bottom,rgba(244,243,238,.95),transparent);pointer-events:none;z-index:10;display:flex;justify-content:space-between;align-items:flex-start">
+    <div><div style="font-size:17px;font-weight:900;color:var(--forest)">TrailClean</div><div style="font-size:11px;color:var(--muted)">Vosges Alsaciennes</div></div>
+    <div id="ptsbadge" style="background:var(--forest);color:var(--lime);border-radius:20px;padding:4px 12px;font-size:13px;font-weight:700;pointer-events:all">⚡ 0 pts</div>
+  </div>
+</div>
+
+<!-- ── HIKE ─────────────────────────────────────────────────────────── -->
+<div id="s-hike" class="sc">
+  <div class="pf">
+    <div id="hkbar" style="display:none;background:var(--forest);padding:7px 14px;align-items:center;gap:8px">
+      <div style="width:8px;height:8px;border-radius:50%;background:var(--lime);box-shadow:0 0 6px var(--lime);animation:ping 2s infinite;flex-shrink:0"></div>
+      <span id="hkt" style="color:#fff;font-weight:700;font-size:13px">EN COURS — 00:00</span>
+    </div>
+    <div id="hkstats" style="display:none;background:#fff;border-bottom:1px solid var(--border);padding:8px 14px">
+      <div style="display:flex;gap:8px">
+        <div style="flex:1;text-align:center"><div id="hsw" style="font-size:21px;font-weight:900;color:var(--forest)">0</div><div style="font-size:9px;font-weight:700;color:var(--muted);letter-spacing:1px">DÉCHETS</div></div>
+        <div style="flex:1;text-align:center"><div id="hsp" style="font-size:21px;font-weight:900;color:var(--forest)">+0</div><div style="font-size:9px;font-weight:700;color:var(--muted);letter-spacing:1px">POINTS</div></div>
+        <div style="flex:1;text-align:center"><div id="hsk" style="font-size:21px;font-weight:900;color:var(--forest)">0.0</div><div style="font-size:9px;font-weight:700;color:var(--muted);letter-spacing:1px">KM</div></div>
+      </div>
+    </div>
+    <div id="hikemap" style="flex:1"></div>
+    <div style="padding:10px 14px;background:#fff;border-top:1px solid var(--border)">
+      <div id="hkadd" style="display:none;gap:8px;margin-bottom:10px">
+        <button class="btn bp bw" onclick="sAdd('collect',1)">📷 Je ramasse</button>
+        <button class="btn ba bw" onclick="sAdd('signal',1)">⚠️ Signaler</button>
+      </div>
+      <button id="hkbtn" class="btn bp bw bl" onclick="togHike()">▶ Démarrer une rando</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── ACTION SHEET ─────────────────────────────────────────────────── -->
+<div id="s-act" class="sc">
+  <div style="flex:1;background:rgba(0,0,0,.4)" onclick="back()"></div>
+  <div class="sh">
+    <div class="hdl"></div>
+    <div id="actgps" style="background:var(--card);border-radius:10px;padding:8px 12px;margin-bottom:14px;font-size:12px;color:var(--muted)">📍 Récupération GPS…</div>
+    <p style="font-weight:700;font-size:17px;margin-bottom:14px">Que veux-tu faire ?</p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button onclick="chMode('collect')" style="display:flex;align-items:flex-start;gap:14px;padding:14px;border-radius:14px;border:1.5px solid var(--leaf);background:#52B78814;text-align:left;cursor:pointer;width:100%">
+        <span style="font-size:30px">📷</span>
+        <div><div style="font-weight:700;font-size:15px;color:var(--forest)">Je ramasse</div><div style="font-size:13px;color:var(--dim);margin-top:2px">Photo + type → pin vert sur la carte</div><span class="tg" style="margin-top:6px;display:inline-block;background:#2D6A4F18;color:var(--forest)">+5 à +15 pts</span></div>
+      </button>
+      <button onclick="chMode('signal')" style="display:flex;align-items:flex-start;gap:14px;padding:14px;border-radius:14px;border:1.5px solid var(--amber);background:#E0902012;text-align:left;cursor:pointer;width:100%">
+        <span style="font-size:30px">⚠️</span>
+        <div><div style="font-weight:700;font-size:15px;color:var(--amber)">Je signale sans ramasser</div><div style="font-size:13px;color:var(--dim);margin-top:2px">Trop lourd, pas de sac → pin orange</div><div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap"><span class="tg" style="background:#E0902018;color:var(--amber)">+2 pts signal</span><span class="tg" style="background:#2D6A4F18;color:var(--forest)">+5 pts bonus différé</span></div></div>
+      </button>
+      <button onclick="back()" style="padding:12px;border:none;background:none;color:var(--muted);font-size:14px;cursor:pointer">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── TYPE SELECT ──────────────────────────────────────────────────── -->
+<div id="s-type" class="sc">
+  <div class="pg">
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border)">
+      <button onclick="back()" style="background:none;border:none;font-size:22px;color:var(--dim);cursor:pointer">←</button>
+      <div><div id="tytitle" style="font-weight:700;font-size:15px;color:var(--forest)">📷 Ramasser</div><div style="font-size:12px;color:var(--muted)">Choisis le type</div></div>
+    </div>
+    <div style="padding:14px"><div id="tygrid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"></div></div>
+  </div>
+</div>
+
+<!-- ── CAMERA ───────────────────────────────────────────────────────── -->
+<div id="s-cam" class="sc">
+  <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border)">
+    <button onclick="stopCam();back()" style="background:none;border:none;font-size:22px;color:var(--dim);cursor:pointer">←</button>
+    <div id="camlbl" style="font-weight:700;font-size:15px">🧴 Plastique</div>
+  </div>
+  <div style="flex:1;position:relative;background:#111;overflow:hidden;min-height:200px">
+    <video id="vid" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;display:none"></video>
+    <canvas id="cvs" style="display:none"></canvas>
+    <img id="prev" style="display:none;width:100%;height:100%;object-fit:cover;position:absolute;inset:0">
+    <div id="cov" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#1a1a1a">
+      <div style="font-size:38px">📷</div>
+      <div style="color:#fff;font-size:14px;text-align:center;padding:0 20px">Ouverture de la caméra…</div>
+    </div>
+    <button id="cretake" onclick="retake()" style="display:none;position:absolute;top:10px;right:10px;background:rgba(0,0,0,.55);border:none;color:#fff;border-radius:20px;padding:5px 14px;font-size:12px;cursor:pointer">Reprendre</button>
+  </div>
+  <div style="padding:12px 14px;background:#fff;border-top:1px solid var(--border)">
+    <div style="display:flex;align-items:center;gap:16px;justify-content:center;margin-bottom:12px">
+      <button onclick="adjQ(-1)" style="width:38px;height:38px;border-radius:50%;border:1.5px solid var(--border);background:#fff;font-size:20px;font-weight:700;cursor:pointer">−</button>
+      <span id="qty" style="font-size:34px;font-weight:900;min-width:40px;text-align:center">1</span>
+      <button onclick="adjQ(1)" style="width:38px;height:38px;border-radius:50%;border:1.5px solid var(--border);background:#fff;font-size:20px;font-weight:700;cursor:pointer">+</button>
+    </div>
+    <button id="cambtn" class="btn bp bw bl" onclick="camAct()">📷 Prendre la photo</button>
+  </div>
+</div>
+
+<!-- ── CONFIRM ──────────────────────────────────────────────────────── -->
+<div id="s-confirm" class="sc" style="align-items:center;justify-content:center;padding:28px 20px;gap:16px;text-align:center">
+  <div id="cr" style="width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:36px"></div>
+  <div><h2 id="ct" style="font-size:22px;font-weight:900"></h2><p id="cs" style="color:var(--muted);font-size:13px;margin-top:3px"></p></div>
+  <div id="cp" style="background:#fff;border-radius:14px;border:1px solid var(--border);padding:18px;width:100%;max-width:280px"></div>
+  <div style="background:#FFF8E1;border-radius:10px;padding:10px 14px;border:1.5px dashed #F0C040;width:100%;max-width:280px;font-size:12px;color:#806020">🏅 Continue pour débloquer des badges !</div>
+  <button id="cback" class="btn bp bl" style="max-width:280px;width:100%" onclick="confBack()">← Retour</button>
+</div>
+
+<!-- ── OTHER SCREENS ────────────────────────────────────────────────── -->
+<div id="s-lead" class="sc"><div class="pg" id="ld"></div></div>
+<div id="s-prog" class="sc"><div class="pg" id="pg"></div></div>
+<div id="s-chal" class="sc"><div class="pg" id="ch"></div></div>
+<div id="s-games" class="sc"><div class="pg" id="gh"></div></div>
+<div id="s-gtri" class="sc"><div id="gtri" style="flex:1;display:flex;flex-direction:column;overflow:hidden"></div></div>
+<div id="s-gquiz" class="sc"><div id="gquiz" style="flex:1;display:flex;flex-direction:column;overflow:hidden"></div></div>
+<div id="s-gspot" class="sc"><div id="gspot" style="flex:1;display:flex;flex-direction:column;overflow:hidden"></div></div>
+<div id="s-prof" class="sc"><div class="pg" id="pf"></div></div>
+
+<!-- ── WAZE OVERLAY ─────────────────────────────────────────────────── -->
+<div id="wz" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,.45);z-index:300;align-items:flex-end">
+  <div class="sh" id="wzsh"></div>
+</div>
+
+<!-- ── NAV ──────────────────────────────────────────────────────────── -->
+<nav id="nav" style="display:flex">
+  <button class="ni on" id="ni-map" onclick="go('map')"><em>🗺️</em>Carte</button>
+  <button class="ni" id="ni-hike" onclick="go('hike')"><em>⏺</em>Rando</button>
+  <button class="ni" id="ni-lead" onclick="go('lead')"><em>🏔</em>Classement</button>
+  <button class="ni" id="ni-chal" onclick="go('chal')"><em>⚔️</em>Défis</button>
+  <button class="ni" id="ni-games" onclick="go('games')"><em>🎮</em>Jeux</button>
+  <button class="ni" id="ni-prof" onclick="go('prof')"><em>🥾</em>Profil</button>
+</nav>
+</div>
+<div id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ════════════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════════════
+const SK='tc_v3'
+let S={user:null,pts:0,col:0,sig:0,ses:0,km:0,badges:[],logs:[],gs:{tri:0,quiz:0,spot:0},dg:{d:'',done:[]},active:null}
+function ld(){try{Object.assign(S,JSON.parse(localStorage.getItem(SK)||'{}'))}catch(e){}}
+function sv(){try{localStorage.setItem(SK,JSON.stringify(S))}catch(e){}}
+ld()
+
+const WT=[
+  {id:'plastic',icon:'🧴',label:'Plastique',pts:5},
+  {id:'glass',icon:'🍾',label:'Verre',pts:8},
+  {id:'metal',icon:'🥫',label:'Métal',pts:6},
+  {id:'paper',icon:'📦',label:'Papier',pts:3},
+  {id:'hazardous',icon:'☠️',label:'Dangereux',pts:15},
+  {id:'organic',icon:'🍌',label:'Organique',pts:2},
+]
+const BG=[
+  {id:'fc',icon:'🌱',label:'Premier déchet ramassé',chk:()=>S.col>=1},
+  {id:'fh',icon:'🥾',label:'Première rando terminée',chk:()=>S.ses>=1},
+  {id:'fs',icon:'👁️',label:'Premier signal',chk:()=>S.sig>=1},
+  {id:'t10',icon:'♻️',label:'10 déchets ramassés',chk:()=>S.col>=10},
+  {id:'p100',icon:'⚡',label:'100 points atteints',chk:()=>S.pts>=100},
+  {id:'p500',icon:'🦸',label:'Eco-Héros (500 pts)',chk:()=>S.pts>=500},
+]
+const MS=[
+  {pts:0,label:'Départ',icon:'🚩',rw:null},
+  {pts:50,label:'Eco-Débutant',icon:'🌱',rw:null},
+  {pts:200,label:'Sentinelle',icon:'🦺',rw:null},
+  {pts:500,label:'Gardien',icon:'🛡️',rw:'Bon Décathlon 5€'},
+  {pts:1000,label:'Explorateur',icon:'🧭',rw:'Bon Décathlon 10€'},
+  {pts:2500,label:'Eco-Héros',icon:'⚡',rw:'Équipement Salomon'},
+]
+function getMS(){let c=MS[0],n=MS[1];for(let i=0;i<MS.length;i++){if(S.pts>=MS[i].pts){c=MS[i];n=MS[i+1]||null}}return{c,n}}
+function uid(){return Math.random().toString(36).slice(2,9)}
+function chkBg(){
+  const e=new Set(S.badges.map(b=>b.id))
+  BG.forEach(b=>{if(!e.has(b.id)&&b.chk()){S.badges.push({...b,at:Date.now()});toast('🏅 Badge débloqué : '+b.icon+' '+b.label)}})
+  sv()
+}
+
+// ════════════════════════════════════════════════════════════════════
+// UI HELPERS
+// ════════════════════════════════════════════════════════════════════
+let _tt
+function toast(m){const el=document.getElementById('toast');el.textContent=m;el.style.display='block';clearTimeout(_tt);_tt=setTimeout(()=>el.style.display='none',3200)}
+function pb(v,mx,c){const p=Math.min(100,Math.round(v/mx*100));return`<div class="pb"><div class="pf2" style="width:${p}%;${c?'background:'+c:''}"></div></div>`}
+function updPts(){const el=document.getElementById('ptsbadge');if(el)el.textContent='⚡ '+S.pts+' pts'}
+
+// ════════════════════════════════════════════════════════════════════
+// ROUTING
+// ════════════════════════════════════════════════════════════════════
+let cur='auth', prev='map'
+const NV=['map','hike','lead','chal','games','prof']
+
+function go(nm){
+  if(nm===cur)return
+  prev=cur
+  document.querySelectorAll('.sc').forEach(s=>s.classList.remove('on'))
+  const el=document.getElementById('s-'+nm)
+  if(el)el.classList.add('on')
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'))
+  const ni=document.getElementById('ni-'+nm)
+  if(ni)ni.classList.add('on')
+  document.getElementById('nav').style.display=NV.includes(nm)?'flex':'none'
+  cur=nm
+  if(nm==='map')initMap()
+  else if(nm==='hike')initHikeMap()
+  else if(nm==='lead')rLead()
+  else if(nm==='chal')rChal()
+  else if(nm==='games')rGames()
+  else if(nm==='prof')rProf()
+  else if(nm==='prog')rProg()
+  else if(nm==='gtri')startTri()
+  else if(nm==='gquiz')startQuiz()
+  else if(nm==='gspot')startSpot()
+  updPts()
+}
+function back(){go(prev)}
+
+// ════════════════════════════════════════════════════════════════════
+// AUTH
+// ════════════════════════════════════════════════════════════════════
+let aMode='l'
+function aTab(m){
+  aMode=m
+  document.getElementById('tl').className='btn '+(m==='l'?'bp':'bs')
+  document.getElementById('tr').className='btn '+(m==='r'?'bp':'bs')
+  document.getElementById('fu').style.display=m==='r'?'block':'none'
+}
+function doAuth(){
+  const e=document.getElementById('ie').value
+  const u=aMode==='r'?document.getElementById('iu').value:(e.split('@')[0]||'Randonneur')
+  S.user={id:uid(),username:u||'Randonneur',email:e,avatar:'🥾'}
+  sv();boot()
+}
+function demo(){S.user={id:'demo',username:'Randonneur',email:'demo@tc.fr',avatar:'🥾'};sv();boot()}
+function boot(){document.getElementById('nav').style.display='flex';go('map')}
+
+// ════════════════════════════════════════════════════════════════════
+// MAP
+// ════════════════════════════════════════════════════════════════════
+let map=null, mapOk=false, uMk=null, mks=[]
+const CTR=[47.808,7.081]
+const DEMO_LOGS=[
+  {id:'m1',type:'plastic',icon:'🧴',mode:'collect',lat:47.812,lng:7.075,pts:5,createdAt:Date.now()-7200000},
+  {id:'m2',type:'glass',icon:'🍾',mode:'signal',lat:47.820,lng:7.095,pts:2,by:'rando_Vosges',createdAt:Date.now()-90000000},
+  {id:'m3',type:'metal',icon:'🥫',mode:'collect',lat:47.800,lng:7.065,pts:6,createdAt:Date.now()-18000000},
+  {id:'m4',type:'hazardous',icon:'☠️',mode:'signal',lat:47.815,lng:7.060,pts:2,by:'EcoVosgien',createdAt:Date.now()-172800000},
+]
+
+function eIcon(e,sz=26,ex=''){
+  return L.divIcon({
+    html:`<div style="font-size:${sz}px;line-height:1;filter:drop-shadow(0 1.5px 3px rgba(0,0,0,.3));transform:translate(-50%,-100%);${ex}">${e}</div>`,
+    iconSize:[sz,sz],iconAnchor:[0,0],className:''
+  })
+}
+
+function initMap(){
+  if(mapOk)return; mapOk=true
+  setTimeout(()=>{
+    map=L.map('leafmap',{center:CTR,zoom:13,zoomControl:false,attributionControl:false})
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map)
+    L.control.attribution({position:'bottomleft',prefix:''}).addAttribution('<a href="https://osm.org">© OSM</a>').addTo(map)
+    rPins(); locU()
+  },60)
+}
+function locU(){
+  if(!navigator.geolocation)return
+  navigator.geolocation.getCurrentPosition(p=>{
+    const{latitude:la,longitude:lo}=p.coords
+    if(map){map.setView([la,lo],15);plUM(la,lo,map,false)}
+    if(hikeMap){hikeMap.setView([la,lo],15);plUM(la,lo,hikeMap,true)}
+    chkWz(la,lo)
+  },()=>{},{enableHighAccuracy:true,timeout:12000})
+}
+function plUM(la,lo,m,h){
+  const ic=L.divIcon({html:`<div style="width:14px;height:14px;border-radius:50%;background:#2D6A4F;border:3px solid #fff;box-shadow:0 0 0 4px #52B78844"></div>`,iconSize:[14,14],iconAnchor:[7,7],className:''})
+  if(!h){if(uMk)uMk.setLatLng([la,lo]);else uMk=L.marker([la,lo],{icon:ic,zIndexOffset:1000}).addTo(m)}
+  else{if(huMk)huMk.setLatLng([la,lo]);else huMk=L.marker([la,lo],{icon:ic,zIndexOffset:1000}).addTo(m)}
+}
+function rPins(){
+  if(!map)return
+  mks.forEach(m=>m.remove()); mks=[]
+  const all=S.logs.length?S.logs:DEMO_LOGS
+  all.forEach(lg=>{
+    if(lg.resolved==='gone')return
+    const sig=lg.mode==='signal'
+    const ic=eIcon(lg.icon||(sig?'⚠️':'🗑️'),24,sig?'filter:drop-shadow(0 0 5px #E09020)':'')
+    const m=L.marker([lg.lat,lg.lng],{icon:ic})
+      .bindPopup(`<div style="font-family:system-ui"><div style="font-size:22px">${lg.icon}</div><b>${lg.type||'Déchet'}</b><br><small>${sig?'⚠️ Signalé':'✅ Collecté'}${lg.by?' · @'+lg.by:''}</small></div>`,{maxWidth:140})
+      .addTo(map)
+    mks.push(m)
+  })
+}
+function chkWz(la,lo){
+  const all=S.logs.length?S.logs:DEMO_LOGS
+  all.filter(w=>w.mode==='signal'&&!w.resolved).forEach(sg=>{
+    if(dM(la,lo,sg.lat,sg.lng)<100)showWz(sg)
+  })
+}
+function dM(a,b,c,d){const R=6371000,dL=(c-a)*Math.PI/180,dG=(d-b)*Math.PI/180,e=Math.sin(dL/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dG/2)**2;return R*2*Math.atan2(Math.sqrt(e),Math.sqrt(1-e))}
+
+// ════════════════════════════════════════════════════════════════════
+// WAZE
+// ════════════════════════════════════════════════════════════════════
+let wzLog=null
+function showWz(lg){
+  wzLog=lg
+  const h=Math.round((Date.now()-(lg.createdAt||Date.now()-72000000))/3600000)
+  document.getElementById('wzsh').innerHTML=`
+    <div class="hdl"></div>
+    <div style="background:#E0902018;border:1.5px solid #E0902055;border-radius:12px;padding:12px 14px;display:flex;gap:12px;margin-bottom:14px">
+      <span style="font-size:30px">${lg.icon||'⚠️'}</span>
+      <div><div style="font-weight:700;color:var(--amber)">Déchet signalé près de toi</div><div style="font-size:13px;color:var(--dim);margin-top:2px">Il y a ${h}h${lg.by?' · @'+lg.by:''}</div><div style="font-size:12px;color:var(--muted)">📍 ~50m</div></div>
+    </div>
+    <p style="font-weight:700;font-size:16px;text-align:center;margin-bottom:12px">Est-il encore là ?</p>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button onclick="wzR('present')" style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:12px;border:1.5px solid var(--border);background:#fff;text-align:left;cursor:pointer;width:100%"><span style="font-size:22px">👀</span><div style="flex:1"><b>Oui, toujours là</b><div style="font-size:11px;color:var(--muted)">Confirme sa présence</div></div><b style="color:var(--leaf);font-size:13px">+1 pt</b></button>
+      <button onclick="wzCol()" style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:12px;border:1.5px solid var(--forest);background:#2D6A4F12;text-align:left;cursor:pointer;width:100%"><span style="font-size:22px">💪</span><div style="flex:1"><b style="color:var(--forest)">Je le ramasse !</b><div style="font-size:11px;color:var(--muted)">Photo + bonus au signaleur</div></div><b style="color:var(--forest);font-size:13px">+8 pts</b></button>
+      <button onclick="wzR('gone')" style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:12px;border:1.5px solid var(--border);background:#fff;text-align:left;cursor:pointer;width:100%"><span style="font-size:22px">✅</span><div style="flex:1"><b>Non, déjà ramassé</b><div style="font-size:11px;color:var(--muted)">Supprime le pin</div></div><b style="color:var(--leaf);font-size:13px">+2 pts</b></button>
+      <button onclick="clWz()" style="padding:10px;border:none;background:none;color:var(--muted);cursor:pointer;font-size:14px">Passer</button>
+    </div>`
+  document.getElementById('wz').style.display='flex'
+}
+function clWz(){document.getElementById('wz').style.display='none';wzLog=null}
+function wzR(s){S.pts+=s==='gone'?2:1;if(wzLog){wzLog.resolved=s;wzLog.resolvedAt=Date.now()}sv();clWz();toast(s==='gone'?'✅ +2 pts !':'+1 pt ✓');rPins()}
+function wzCol(){clWz();sAdd('collect')}
+
+// ════════════════════════════════════════════════════════════════════
+// ADD FLOW
+// ════════════════════════════════════════════════════════════════════
+let AS={mode:'collect',lat:CTR[0],lng:CTR[1],wt:null,photo:null,qty:1,fh:false}
+let cStr=null, capOk=false
+
+function sAdd(mode,fh){
+  AS={mode,lat:CTR[0],lng:CTR[1],wt:null,photo:null,qty:1,fh:!!fh}
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(p=>{
+      AS.lat=p.coords.latitude; AS.lng=p.coords.longitude
+      document.getElementById('actgps').textContent=`📍 ${AS.lat.toFixed(5)}°N · ${AS.lng.toFixed(5)}°E`
+    },()=>{},{enableHighAccuracy:true,timeout:6000})
+  }
+  go('act')
+}
+function chMode(m){AS.mode=m;rTyGrid();go('type')}
+function rTyGrid(){
+  const sig=AS.mode==='signal'
+  document.getElementById('tytitle').textContent=sig?'⚠️ Signaler':'📷 Ramasser'
+  document.getElementById('tytitle').style.color=sig?'var(--amber)':'var(--forest)'
+  document.getElementById('tygrid').innerHTML=WT.map(w=>`
+    <button onclick="selTy('${w.id}')" style="display:flex;align-items:center;gap:10px;padding:13px 11px;border-radius:12px;border:1.5px solid var(--border);background:#fff;text-align:left;cursor:pointer;width:100%">
+      <span style="font-size:26px">${w.icon}</span>
+      <div><div style="font-weight:600;font-size:13px">${w.label}</div><div style="font-size:11px;font-weight:700;color:${sig?'var(--amber)':'var(--forest)'}">
+        ${sig?`+2 pts (+${w.pts} bonus)`:'+'+w.pts+' pts'}</div></div>
+    </button>`).join('')
+}
+function selTy(id){
+  AS.wt=WT.find(w=>w.id===id)
+  if(AS.mode==='signal'){subLog();return}
+  openCam()
+}
+
+// CAMERA
+function openCam(){
+  prev='type'; go('cam')
+  capOk=false
+  document.getElementById('camlbl').textContent=`${AS.wt.icon} ${AS.wt.label}`
+  document.getElementById('cambtn').textContent='📷 Prendre la photo'
+  document.getElementById('qty').textContent='1'; AS.qty=1
+  document.getElementById('prev').style.display='none'
+  document.getElementById('cretake').style.display='none'
+  document.getElementById('vid').style.display='none'
+  const ov=document.getElementById('cov')
+  ov.style.display='flex'
+  ov.innerHTML='<div style="font-size:38px">📷</div><div style="color:#fff;font-size:14px">Ouverture de la caméra…</div>'
+
+  navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false})
+    .then(s=>{
+      cStr=s
+      const v=document.getElementById('vid')
+      v.srcObject=s; v.style.display='block'; ov.style.display='none'
+    })
+    .catch(e=>{
+      ov.innerHTML=`
+        <div style="font-size:36px">🔒</div>
+        <div style="color:#fff;font-size:13px;text-align:center;padding:0 16px">Caméra non accessible<br><small style="opacity:.7">${e.message}</small></div>
+        <button onclick="skipPh()" style="margin-top:12px;background:var(--forest);color:#fff;border:none;padding:9px 20px;border-radius:10px;font-size:13px;cursor:pointer">Continuer sans photo</button>`
+    })
+}
+function stopCam(){if(cStr){cStr.getTracks().forEach(t=>t.stop());cStr=null}; document.getElementById('vid').srcObject=null}
+function skipPh(){AS.photo='demo'; stopCam(); subLog()}
+function camAct(){
+  if(capOk){subLog();return}
+  const v=document.getElementById('vid'), cv=document.getElementById('cvs')
+  const r=Math.min(800/v.videoWidth,800/v.videoHeight,1)
+  cv.width=Math.round(v.videoWidth*r); cv.height=Math.round(v.videoHeight*r)
+  cv.getContext('2d').drawImage(v,0,0,cv.width,cv.height)
+  AS.photo=cv.toDataURL('image/jpeg',.72)
+  stopCam()
+  const pr=document.getElementById('prev'); pr.src=AS.photo; pr.style.display='block'
+  document.getElementById('vid').style.display='none'
+  document.getElementById('cretake').style.display='block'
+  document.getElementById('cambtn').textContent=`Valider · +${AS.wt.pts*AS.qty} pts →`
+  capOk=true
+}
+function retake(){capOk=false;document.getElementById('prev').style.display='none';document.getElementById('cretake').style.display='none';document.getElementById('cambtn').textContent='📷 Prendre la photo';openCam()}
+function adjQ(d){AS.qty=Math.max(1,AS.qty+d);document.getElementById('qty').textContent=AS.qty;if(capOk&&AS.wt)document.getElementById('cambtn').textContent=`Valider · +${AS.wt.pts*AS.qty} pts →`}
+
+function subLog(){
+  const sig=AS.mode==='signal', pts=sig?2:AS.wt.pts*AS.qty
+  S.logs.push({id:uid(),type:AS.wt.id,icon:AS.wt.icon,mode:AS.mode,lat:AS.lat,lng:AS.lng,photo:AS.photo,qty:AS.qty,pts,createdAt:Date.now()})
+  S.pts+=pts
+  if(sig)S.sig++;else S.col++
+  if(AS.fh&&S.active){S.active.wc++;S.active.pe+=pts}
+  chkBg(); sv(); rPins()
+  if(!sig)stopCam()
+  showConf(sig,pts)
+}
+function showConf(sig,pts){
+  document.getElementById('cr').style.cssText=`width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:36px;background:${sig?'#E0902022':'#52B78822'};border:3px solid ${sig?'var(--amber)':'var(--forest)'}`
+  document.getElementById('cr').textContent=sig?'⚠️':'✓'
+  document.getElementById('ct').textContent=sig?'Signal enregistré !':'Bien joué !'
+  document.getElementById('cs').textContent=`${AS.wt.icon} ${AS.wt.label}${AS.qty>1?' × '+AS.qty:''}`
+  document.getElementById('cp').innerHTML=sig
+    ?`<div style="font-size:32px;font-weight:900;color:var(--amber)">+2 pts</div><div style="font-size:12px;color:var(--muted);margin-top:3px">signal immédiat</div><div style="margin-top:10px;padding:7px 12px;background:#2D6A4F12;border-radius:8px;font-size:12px;color:var(--forest);font-weight:600">🎁 +${AS.wt.pts} pts bonus si quelqu'un ramasse !</div>`
+    :`<div style="font-size:40px;font-weight:900;color:var(--forest)">+${pts}</div><div style="font-size:13px;color:var(--muted);margin-top:4px">points gagnés</div>`
+  document.getElementById('cback').textContent=`← Retour ${AS.fh?'à la rando':'à la carte'}`
+  go('confirm'); updPts()
+}
+function confBack(){go(AS.fh?'hike':'map')}
+
+// ════════════════════════════════════════════════════════════════════
+// HIKE
+// ════════════════════════════════════════════════════════════════════
+let hikeMap=null, hmOk=false, huMk=null, gpsW=null, poly=null, tmr=null
+
+function initHikeMap(){
+  if(hmOk)return; hmOk=true
+  setTimeout(()=>{
+    hikeMap=L.map('hikemap',{center:CTR,zoom:14,zoomControl:false,attributionControl:false})
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(hikeMap)
+    locU()
+  },60)
+}
+function togHike(){S.active?stopHike():startHike()}
+function startHike(){
+  S.active={id:uid(),st:Date.now(),track:[],wc:0,pe:0}; sv()
+  document.getElementById('hkbar').style.display='flex'
+  document.getElementById('hkstats').style.display='block'
+  document.getElementById('hkadd').style.display='flex'
+  document.getElementById('hkbtn').className='btn br bw bl'
+  document.getElementById('hkbtn').textContent='⏹ Terminer la rando'
+  tmr=setInterval(updHk,1000)
+  if(navigator.geolocation) gpsW=navigator.geolocation.watchPosition(p=>{
+    const{latitude:la,longitude:lo}=p.coords
+    if(!S.active)return
+    S.active.track.push([la,lo]); plUM(la,lo,hikeMap,true)
+    if(hikeMap)hikeMap.setView([la,lo])
+    if(S.active.track.length>1){if(poly)poly.remove();poly=L.polyline(S.active.track,{color:'#2D6A4F',weight:3,opacity:.85,dashArray:'8 4'}).addTo(hikeMap)}
+    sv()
+  },()=>{},{enableHighAccuracy:true,maximumAge:3000})
+}
+function stopHike(){
+  clearInterval(tmr)
+  if(gpsW!==null){navigator.geolocation.clearWatch(gpsW);gpsW=null}
+  S.ses++; S.km+=cKm(S.active?.track||[]); S.active=null; sv(); chkBg()
+  document.getElementById('hkbar').style.display='none'
+  document.getElementById('hkstats').style.display='none'
+  document.getElementById('hkadd').style.display='none'
+  document.getElementById('hkbtn').className='btn bp bw bl'
+  document.getElementById('hkbtn').textContent='▶ Démarrer une rando'
+  toast('🎉 Rando terminée !')
+}
+function updHk(){
+  if(!S.active)return
+  const el=Date.now()-S.active.st, m=Math.floor(el/60000), s=Math.floor((el%60000)/1000)
+  document.getElementById('hkt').textContent=`EN COURS — ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+  document.getElementById('hsw').textContent=S.active.wc
+  document.getElementById('hsp').textContent='+'+S.active.pe
+  document.getElementById('hsk').textContent=cKm(S.active.track).toFixed(1)
+}
+function cKm(t){if(!t||t.length<2)return 0;let r=0;for(let i=1;i<t.length;i++)r+=dM(t[i-1][0],t[i-1][1],t[i][0],t[i][1]);return Math.round(r/10)/100}
+
+// ════════════════════════════════════════════════════════════════════
+// LEADERBOARD
+// ════════════════════════════════════════════════════════════════════
+let lbF='global'
+const LBG=[{r:1,n:'EcoVosgien',av:'🦅',pts:2840,km:84},{r:2,n:'GrandBallon',av:'🏔',pts:2120,km:71},{r:3,n:'RandoThann',av:'🌿',pts:1880,km:63},{r:5,n:'ValléeVerte',av:'🍃',pts:720,km:19}]
+const LBF=[{r:2,n:'Marie_R',av:'🌸',pts:640,km:18},{r:3,n:'Tom_Alsace',av:'🦊',pts:310,km:9}]
+const TP=[{x:12,y:88},{x:10,y:76},{x:20,y:66},{x:15,y:54},{x:28,y:44},{x:42,y:36},{x:56,y:28},{x:68,y:36},{x:78,y:26}]
+function tPos(p){const n=TP.length-1,i=Math.min(p*n,n-.001),j=Math.floor(i),t=i-j,a=TP[j],b=TP[Math.min(j+1,n)];return{x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t}}
+function rLead(){
+  const me={r:4,n:S.user?.username||'Randonneur',av:'🥾',pts:S.pts,km:+(S.km.toFixed(1)),me:true}
+  const list=lbF==='global'?[LBG[0],LBG[1],LBG[2],me,LBG[3]]:[me,...LBF]
+  const MX=3000
+  const avH=list.filter(p=>p.pts!==undefined).map(p=>{const pos=tPos(Math.min(p.pts/MX,1));return`<div style="position:absolute;left:${pos.x}%;top:${pos.y}%;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;z-index:${p.me?10:5}"><div style="width:${p.me?30:22}px;height:${p.me?30:22}px;border-radius:50%;background:${p.me?'var(--lime)':'#fff'};border:${p.me?3:2}px solid ${p.me?'var(--forest)':'var(--border)'};display:flex;align-items:center;justify-content:center;font-size:${p.me?15:11}px;box-shadow:${p.me?'0 2px 8px #2D6A4F44':'0 1px 4px rgba(0,0,0,.2)'}">${p.av}</div><div style="background:${p.me?'var(--forest)':'#fff'};color:${p.me?'#fff':'var(--dim)'};border-radius:6px;padding:1px 5px;font-size:7px;font-weight:700;margin-top:1px;border:1px solid ${p.me?'var(--forest)':'var(--border)'};">#${p.r}${p.me?' Toi':''}</div></div>`}).join('')
+  const liH=list.map((p,i)=>`<div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;background:${p.me?'#2D6A4F12':'#fff'};border:1px solid ${p.me?'#2D6A4F44':'var(--border)'};margin-bottom:8px"><div style="font-size:19px;width:26px;text-align:center">${i<3?['🥇','🥈','🥉'][i]:'#'+p.r}</div><div style="font-size:22px">${p.av}</div><div style="flex:1"><div style="font-weight:${p.me?700:500};font-size:14px">${p.me?p.n+' (Toi)':p.n}</div><div style="font-size:11px;color:var(--muted)">${p.km} km</div></div><div style="text-align:right"><div style="font-weight:800;font-size:14px;color:${p.me?'var(--forest)':'var(--text)'}">${p.pts}</div><div style="font-size:10px;color:var(--muted)">pts</div></div></div>`).join('')
+  document.getElementById('ld').innerHTML=`
+    <div style="padding:14px 14px 4px"><h1 style="font-size:20px;font-weight:800">Sentier des Champions</h1></div>
+    <div style="display:flex;gap:8px;padding:8px 14px">${['global','friends','local'].map(f=>`<button onclick="lbF='${f}';rLead()" style="padding:5px 12px;border-radius:20px;border:none;font-size:12px;font-weight:600;background:${lbF===f?'var(--forest)':'var(--card)'};color:${lbF===f?'#fff':'var(--dim)'};cursor:pointer">${f==='global'?'🌍 Général':f==='friends'?'👥 Amis':'📍 Vosges'}</button>`).join('')}</div>
+    <div style="margin:8px 14px;position:relative;height:175px;background:linear-gradient(to bottom,#C8E0FF 0%,#A8D090 55%,#7AB060 100%);border-radius:14px;overflow:hidden;border:1px solid var(--border)">
+      <svg viewBox="0 0 100 100" style="position:absolute;inset:0;width:100%;height:100%" preserveAspectRatio="none">
+        ${[5,14,22,35,50,64,72,84,92].map(x=>`<g><rect x="${x-.5}" y="56" width="1" height="6" fill="#4A6830"/><polygon points="${x},48 ${x-3},56 ${x+3},56" fill="#5A8038"/></g>`).join('')}
+        <polygon points="55,55 70,18 85,55" fill="#8AA878" opacity=".7"/>
+        <path d="${TP.map((p,i)=>(i?'L':'M')+p.x+','+p.y).join(' ')}" fill="none" stroke="#D4A820" stroke-width="2.5" stroke-linecap="round"/>
+        <text x="6" y="96" font-size="7">🚩</text><text x="74" y="24" font-size="7">🏔</text>
+      </svg>
+      ${avH}
+    </div>
+    <button onclick="go('prog')" style="display:flex;align-items:center;justify-content:space-between;margin:0 14px 10px;padding:10px 14px;background:var(--forest);border-radius:12px;border:none;width:calc(100% - 28px);cursor:pointer">
+      <div style="color:#fff;text-align:left"><div style="font-weight:700;font-size:13px">Mon Chemin de progression</div><div style="font-size:11px;color:#74C69D">${S.pts} pts · Badges &amp; récompenses →</div></div><span style="font-size:20px">🛤</span>
+    </button>
+    <div style="padding:0 14px">${liH}</div>`
+}
+
+// ════════════════════════════════════════════════════════════════════
+// PROGRESS
+// ════════════════════════════════════════════════════════════════════
+function rProg(){
+  const{c,n}=getMS()
+  const eId=new Set(S.badges.map(b=>b.id))
+  document.getElementById('pg').innerHTML=`
+    <div style="padding:14px 14px 4px;display:flex;align-items:center;gap:12px">
+      <button onclick="back()" style="background:none;border:none;font-size:22px;color:var(--dim);cursor:pointer">←</button>
+      <div><h1 style="font-size:20px;font-weight:800">Mon Chemin</h1><p style="font-size:13px;color:var(--muted)">Badges &amp; récompenses</p></div>
+    </div>
+    <div style="margin:8px 14px;background:var(--forest);border-radius:14px;padding:14px;display:flex;align-items:center;gap:12px">
+      <div style="font-size:34px">🥾</div>
+      <div style="flex:1"><div style="font-size:10px;color:#74C69D;font-weight:700;letter-spacing:1px">MES POINTS</div><div style="font-size:34px;font-weight:900;color:var(--lime);line-height:1">${S.pts}</div></div>
+      ${n?`<div style="text-align:right"><div style="font-size:10px;color:#74C69D">Prochain</div><div style="font-size:20px">${n.icon}</div><div style="font-size:10px;color:var(--lime);font-weight:700">${n.pts-S.pts} pts</div></div>`:''}
+    </div>
+    <div style="padding:6px 14px">${pb(S.pts,MS[MS.length-1].pts)}</div>
+    <div style="padding:6px 14px">
+      ${MS.map((m,i)=>{const done=S.pts>=m.pts,curr=n&&n.pts===m.pts;return`<div style="display:flex;gap:10px;opacity:${done||curr?1:.45}">
+        <div style="display:flex;flex-direction:column;align-items:center;width:34px">
+          <div style="width:34px;height:34px;border-radius:50%;background:${done?'var(--leaf)':curr?'var(--lime)':'var(--card)'};border:2.5px solid ${done||curr?'var(--forest)':'var(--border)'};display:flex;align-items:center;justify-content:center;font-size:17px">${m.icon}</div>
+          ${i<MS.length-1?`<div style="width:2px;flex:1;min-height:14px;background:${done?'var(--leaf)':'var(--border)'};margin:2px 0;border-radius:2px"></div>`:''}
+        </div>
+        <div style="flex:1;padding:6px 10px;border-radius:10px;margin-bottom:4px;background:${curr?'var(--lime)22':done?'#52B78810':'var(--card)'};border:1px solid ${curr?'var(--forest)55':done?'#52B78844':'var(--border)'}">
+          <div style="display:flex;justify-content:space-between"><div style="font-weight:700;font-size:13px">${m.label}</div><div style="font-size:11px;color:var(--muted)">${m.pts} pts</div></div>
+          ${done&&!curr?'<div style="font-size:11px;color:var(--leaf)">✓ Obtenu</div>':''}
+          ${curr?`${pb(S.pts,m.pts,'var(--lime)')}<div style="font-size:10px;color:var(--forest);margin-top:2px">${S.pts}/${m.pts} pts</div>${m.rw?`<span class="tg" style="background:#E0902022;color:var(--amber);margin-top:4px;display:inline-block">🎁 ${m.rw}</span>`:''}`:''}
+          ${!done&&!curr&&m.rw?`<div style="font-size:11px;color:var(--amber)">🔒 ${m.rw}</div>`:''}
+        </div>
+      </div>`}).join('')}
+    </div>
+    <div style="padding:0 14px 14px">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:8px">BADGES</div>
+      ${BG.map(b=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;background:${eId.has(b.id)?'#52B78814':'var(--card)'};border:1px solid ${eId.has(b.id)?'#52B78844':'var(--border)'};opacity:${eId.has(b.id)?1:.5};margin-bottom:5px"><span style="font-size:20px;filter:${eId.has(b.id)?'none':'grayscale(100%)'}">${b.icon}</span><div style="flex:1;font-size:12px">${b.label}</div>${eId.has(b.id)?'<span style="color:var(--leaf)">✓</span>':'<span style="color:var(--muted)">🔒</span>'}</div>`).join('')}
+    </div>`
+}
+
+// ════════════════════════════════════════════════════════════════════
+// CHALLENGES
+// ════════════════════════════════════════════════════════════════════
+let chTab='active'
+const CHS=[
+  {id:'c1',icon:'🌍',title:'Challenge Avril des Vosges',sponsor:'Patagonia',desc:'Collectivement, ramassons 500 déchets dans le PNR',prog:312,tot:500,end:'30 avr.',rw:'Bon Patagonia 15€',col:'#2D6A4F',ppl:84},
+  {id:'c2',icon:'⚔️',title:'Duel de la semaine',vs:'Marie_R',vsA:'🌸',my:42,th:38,end:'dim.',rw:'+50 XP',col:'#2850A0',win:true},
+  {id:'c3',icon:'☠️',title:'Déchets dangereux',desc:'Signalez 30 déchets dangereux sur les sentiers',prog:7,tot:30,end:'15 mai',rw:'Badge Démineur',col:'#CC3333',ppl:31},
+]
+function rChal(){
+  const tH=['active','friends','available'].map(t=>`<button onclick="chTab='${t}';rChal()" style="padding:5px 12px;border-radius:20px;border:none;font-size:12px;font-weight:600;background:${chTab===t?'var(--forest)':'var(--card)'};color:${chTab===t?'#fff':'var(--dim)'};cursor:pointer">${t==='active'?'En cours':t==='friends'?'👥 Défier':'Disponibles'}</button>`).join('')
+  let body=''
+  if(chTab==='active'){
+    body=CHS.map(c=>`<div style="border-radius:14px;overflow:hidden;border:1.5px solid ${c.col}44;margin-bottom:12px">
+      <div style="background:${c.col};padding:9px 14px;display:flex;align-items:center;gap:10px"><span style="font-size:20px">${c.icon}</span><div style="flex:1"><div style="font-weight:700;font-size:13px;color:#fff">${c.title}</div>${c.sponsor?`<div style="font-size:10px;color:rgba(255,255,255,.8)">Par ${c.sponsor}</div>`:''} ${c.vs?`<div style="font-size:10px;color:rgba(255,255,255,.8)">vs ${c.vs} ${c.vsA}</div>`:''}</div><div style="font-size:10px;color:rgba(255,255,255,.8)">${c.end}</div></div>
+      <div style="background:${c.col}10;padding:10px 14px">${c.desc?`<div style="font-size:12px;color:var(--text);margin-bottom:8px">${c.desc}</div>`:''} ${c.prog!==undefined?`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:3px"><span>${c.prog}/${c.tot}</span><span>${Math.round(c.prog/c.tot*100)}%</span></div>${pb(c.prog,c.tot,c.col)}${c.ppl?`<div style="font-size:10px;color:var(--muted);margin-top:3px">👥 ${c.ppl} participants</div>`:''}`:''} ${c.my!==undefined?`<div style="display:flex;align-items:center;gap:14px;justify-content:center;margin:8px 0"><div style="text-align:center"><div style="font-size:26px;font-weight:900;color:${c.win?'var(--forest)':'var(--dim)'}">${c.my}</div><div style="font-size:10px;color:var(--muted)">Toi</div></div><div style="font-size:16px">⚔️</div><div style="text-align:center"><div style="font-size:26px;font-weight:900;color:${!c.win?'var(--forest)':'var(--dim)'}">${c.th}</div><div style="font-size:10px;color:var(--muted)">${c.vs}</div></div></div>`:''}<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px"><span class="tg" style="background:#E0902022;color:var(--amber)">🎁 ${c.rw}</span>${c.win!==undefined?`<b style="color:${c.win?'var(--forest)':'var(--amber)'}">🔥 ${c.win?'Tu mènes !':'Remonte !'}</b>`:''}</div></div>
+    </div>`).join('')
+  } else if(chTab==='friends'){
+    body=`<p style="font-size:13px;color:var(--dim);margin-bottom:10px">Défie un ami sur 7 jours — qui ramasse le plus ?</p>${['Marie_R 🌸','Tom_Alsace 🦊','JulietteM 🌻'].map(f=>`<div style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;background:#fff;border:1px solid var(--border);margin-bottom:7px"><div style="flex:1;font-size:13px">${f}</div><button onclick="toast('✉️ Défi envoyé !')" class="btn bp" style="padding:6px 12px;font-size:12px;border-radius:20px">⚔️ Défier</button></div>`).join('')}<div onclick="toast('🔗 Lien copié !')" style="text-align:center;padding:11px;background:#2850A012;border-radius:11px;border:1.5px dashed #2850A055;color:#2850A0;font-weight:600;font-size:13px;cursor:pointer">+ Inviter un ami par lien</div>`
+  } else {
+    body=[{icon:'🚵',title:'VTT Propre',desc:'Ramasse pendant 3 sorties VTT',rw:'+100 XP',col:'#108080'},{icon:'🏫',title:'Eco-École',desc:'Inviter un ado à rejoindre',rw:'Badge Mentor',col:'#6030A0'}].map(c=>`<div style="display:flex;gap:12px;padding:12px;border-radius:12px;background:#fff;border:1.5px solid ${c.col}55;margin-bottom:8px"><span style="font-size:26px">${c.icon}</span><div style="flex:1"><div style="font-weight:700;font-size:13px">${c.title}</div><div style="font-size:12px;color:var(--dim)">${c.desc}</div><span class="tg" style="background:${c.col}22;color:${c.col};margin-top:4px;display:inline-block">🎁 ${c.rw}</span></div><button onclick="toast('✅ Défi rejoint !')" style="align-self:center;background:${c.col};color:#fff;border:none;padding:6px 11px;border-radius:14px;font-size:12px;cursor:pointer">Rejoindre</button></div>`).join('')
+  }
+  document.getElementById('ch').innerHTML=`<div style="padding:14px 14px 4px"><h1 style="font-size:20px;font-weight:800">⚔️ Défis</h1></div><div style="display:flex;gap:7px;padding:8px 14px">${tH}</div><div style="padding:8px 14px">${body}</div>`
+}
+
+// ════════════════════════════════════════════════════════════════════
+// GAMES HUB
+// ════════════════════════════════════════════════════════════════════
+const GDF=[
+  {id:'gtri',icon:'♻️',title:'Trier les déchets',desc:'Classe chaque déchet dans la bonne poubelle.',col:'var(--forest)',pts:'+10 pts/réponse',plays:'1 204'},
+  {id:'gquiz',icon:'🧠',title:'Quiz Écologie',desc:'5 questions sur le recyclage et la nature.',col:'var(--purple)',pts:'+5 pts/réponse',plays:'876'},
+  {id:'gspot',icon:'🔍',title:'Spot les déchets',desc:'Repère les déchets cachés dans la scène nature.',col:'var(--teal)',pts:'+10 pts/déchet',plays:'2 341'},
+]
+function rGames(){
+  const td=new Date().toISOString().slice(0,10), dn=S.dg.d===td?S.dg.done:[], al=GDF.every(g=>dn.includes(g.id))
+  document.getElementById('gh').innerHTML=`
+    <div style="padding:14px 14px 4px"><h1 style="font-size:20px;font-weight:800">🎮 Mini-Jeux</h1></div>
+    <div style="margin:8px 14px;padding:11px 14px;background:${al?'#52B78822':'#C8981822'};border-radius:13px;border:1.5px solid ${al?'var(--leaf)':'var(--gold)'}55;display:flex;align-items:center;gap:11px">
+      <span style="font-size:22px">⭐</span><div style="flex:1"><div style="font-weight:700;font-size:13px">${al?'✅ Défi du jour complété !':'Défi du jour'}</div><div style="font-size:11px;color:var(--dim)">${al?'Tu as gagné +50 pts bonus !':'Fais les 3 jeux → +50 pts bonus'}</div></div>
+      <div style="display:flex;gap:3px">${GDF.map(g=>`<div style="width:20px;height:20px;border-radius:50%;background:${dn.includes(g.id)?'var(--gold)':'var(--card)'};border:1.5px solid ${dn.includes(g.id)?'var(--gold)':'var(--border)'};display:flex;align-items:center;justify-content:center;font-size:10px">${dn.includes(g.id)?'✓':g.icon}</div>`).join('')}</div>
+    </div>
+    <div style="padding:0 14px">${GDF.map(g=>`<button onclick="go('${g.id}')" style="display:flex;gap:13px;padding:13px;background:#fff;border-radius:14px;border:1.5px solid ${g.col}33;text-align:left;cursor:pointer;width:100%;margin-bottom:11px;position:relative">${dn.includes(g.id)?'<div style="position:absolute;top:8px;right:10px;background:var(--leaf)22;color:var(--forest);border-radius:10px;padding:2px 8px;font-size:10px;font-weight:700">✓ Fait</div>':''}<div style="width:50px;height:50px;border-radius:13px;background:${g.col};display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">${g.icon}</div><div style="flex:1"><div style="font-weight:700;font-size:14px">${g.title}</div><div style="font-size:12px;color:var(--dim);margin-top:2px">${g.desc}</div><div style="display:flex;gap:7px;margin-top:7px"><span class="tg" style="background:${g.col}22;color:${g.col}">${g.pts}</span><span style="font-size:10px;color:var(--muted)">🎮 ${g.plays}</span></div></div><div style="align-self:center;font-size:18px;color:var(--muted)">›</div></button>`).join('')}
+    <div style="padding:12px;border-radius:13px;background:var(--card);border:1.5px dashed var(--border);text-align:center;margin-bottom:8px"><div style="font-size:26px;margin-bottom:4px">🔮</div><div style="font-weight:600;font-size:13px">Rando Runner</div><div style="font-size:11px;color:var(--muted);margin-top:2px">Bientôt disponible</div></div>
+    </div>`
+}
+
+// ════════════════════════════════════════════════════════════════════
+// GAME TRI
+// ════════════════════════════════════════════════════════════════════
+const TI=[{icon:'🧴',label:'Flacon shampoing',a:'Plastique'},{icon:'📰',label:'Journal',a:'Papier'},{icon:'🍾',label:'Bouteille de vin',a:'Verre'},{icon:'🥫',label:'Boîte de conserve',a:'Métal'},{icon:'🍌',label:'Peau de banane',a:'Compost'},{icon:'☕',label:'Capsule café',a:'Métal'},{icon:'🎁',label:'Papier cadeau',a:'Papier'},{icon:'🧃',label:'Brique de jus',a:'Plastique'}]
+const TB=[{id:'Plastique',icon:'♻️'},{id:'Papier',icon:'📦'},{id:'Verre',icon:'💎'},{id:'Métal',icon:'⚙️'},{id:'Compost',icon:'🌱'}]
+let tSt={cur:0,sc:0,fb:null}
+function startTri(){tSt={cur:0,sc:0,fb:null};rTri()}
+function rTri(){
+  const el=document.getElementById('gtri'), it=TI[tSt.cur]
+  if(!it){finTri();return}
+  el.innerHTML=`
+    <div style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border)"><button onclick="go('games')" style="background:none;border:none;font-size:22px;color:var(--dim);cursor:pointer">←</button><div style="flex:1;font-weight:700;font-size:14px">♻️ Trier les déchets</div><div style="font-weight:800;color:var(--forest)">⚡ ${tSt.sc}</div></div>
+    <div style="padding:7px 14px"><div style="height:5px;background:var(--card);border-radius:4px;overflow:hidden"><div style="width:${(tSt.cur/TI.length)*100}%;height:100%;background:var(--leaf);border-radius:4px"></div></div><div style="font-size:10px;color:var(--muted);margin-top:3px">${tSt.cur+1}/${TI.length}</div></div>
+    <div style="margin:7px 14px;padding:20px 14px;border-radius:14px;text-align:center;background:${tSt.fb?(tSt.fb.ok?'#52B78822':'#CC333318'):'var(--card)'};border:2px solid ${tSt.fb?(tSt.fb.ok?'var(--leaf)':'var(--red)'):'var(--border)'};transition:all .2s">
+      <div style="font-size:50px">${it.icon}</div><div style="font-weight:700;font-size:15px;margin-top:9px">${it.label}</div>
+      ${tSt.fb?`<div style="margin-top:7px;font-weight:700;color:${tSt.fb.ok?'var(--forest)':'var(--red)'}">${tSt.fb.ok?'✓ Correct !':'✗ C\'était : '+it.a}</div>`:''}
+    </div>
+    <div style="padding:4px 14px;overflow-y:auto"><div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px;text-align:center;margin-bottom:9px">DANS QUELLE POUBELLE ?</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${TB.map(b=>`<button onclick="triBin('${b.id}')" style="padding:11px 8px;border-radius:11px;background:${tSt.fb?.ch===b.id?(tSt.fb.ok?'#52B78833':'#CC333322'):'#fff'};border:1.5px solid ${tSt.fb?.ch===b.id?(tSt.fb.ok?'var(--leaf)':'var(--red)'):'var(--border)'};display:flex;align-items:center;justify-content:center;gap:7px;font-size:13px;font-weight:600;cursor:pointer">${b.icon} ${b.id}</button>`).join('')}</div></div>`
+}
+function triBin(b){
+  if(tSt.fb)return
+  const ok=b===TI[tSt.cur].a
+  tSt.fb={ok,ch:b}; if(ok)tSt.sc+=10; rTri()
+  setTimeout(()=>{tSt.fb=null;tSt.cur++;rTri()},800)
+}
+function finTri(){svGame('gtri',tSt.sc,Math.floor(tSt.sc/2));document.getElementById('gtri').innerHTML=gEnd('♻️',tSt.sc,TI.length*10,'gtri','var(--forest)')}
+
+// ════════════════════════════════════════════════════════════════════
+// GAME QUIZ
+// ════════════════════════════════════════════════════════════════════
+const QQ=[
+  {q:"Combien de temps met une bouteille plastique à se décomposer ?",a:["10 ans","100 ans","450 ans","1 000 ans"],c:2,e:"Entre 400 et 450 ans dans la nature."},
+  {q:"Quel % des déchets en forêt sont du plastique ?",a:["25%","40%","55%","70%"],c:1,e:"Environ 40% des déchets sauvages en milieu naturel."},
+  {q:"Le plogging (ramasser en courant) est né dans quel pays ?",a:["France","Norvège","Suède","Finlande"],c:2,e:"Inventé en Suède par Erik Ahlström vers 2016."},
+  {q:"1 mégot de cigarette peut polluer jusqu'à :",a:["1 L","10 L","50 L","500 L"],c:3,e:"Un mégot peut polluer jusqu'à 500 L d'eau."},
+  {q:"Coût annuel des déchets sauvages en France :",a:["10 M€","100 M€","420 M€","1 Md€"],c:2,e:"Ministère Transition Écologique : 340–420 M€/an."},
+]
+let qSt={q:0,sc:0,ans:null}
+function startQuiz(){qSt={q:0,sc:0,ans:null};rQuiz()}
+function rQuiz(){
+  const el=document.getElementById('gquiz'), cu=QQ[qSt.q]
+  if(!cu){finQuiz();return}
+  el.innerHTML=`
+    <div style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border)"><button onclick="go('games')" style="background:none;border:none;font-size:22px;color:var(--dim);cursor:pointer">←</button><div style="flex:1;font-weight:700;font-size:14px">🧠 Quiz Écologie</div><div style="font-weight:800;color:var(--purple)">⚡ ${qSt.sc}</div></div>
+    <div style="padding:7px 14px"><div style="height:5px;background:var(--card);border-radius:4px;overflow:hidden"><div style="width:${(qSt.q/QQ.length)*100}%;height:100%;background:var(--purple);border-radius:4px"></div></div><div style="font-size:10px;color:var(--muted);margin-top:3px">Question ${qSt.q+1}/${QQ.length}</div></div>
+    <div style="margin:7px 14px;padding:16px 14px;border-radius:13px;background:var(--purple)12;border:1.5px solid var(--purple)33"><div style="font-weight:700;font-size:15px;line-height:1.4">${cu.q}</div></div>
+    <div style="padding:4px 14px;display:flex;flex-direction:column;gap:7px;overflow-y:auto">
+      ${cu.a.map((a,i)=>{let bg='#fff',bd='var(--border)',col='var(--text)';if(qSt.ans!==null){if(i===cu.c){bg='#52B78833';bd='var(--leaf)';col='var(--forest)'}else if(i===qSt.ans&&i!==cu.c){bg='#CC333322';bd='var(--red)';col='var(--red)'}}return`<button onclick="quizAns(${i})" style="padding:13px;border-radius:11px;background:${bg};border:1.5px solid ${bd};text-align:left;font-size:13px;font-weight:500;color:${col};cursor:${qSt.ans!==null?'default':'pointer'};transition:all .2s">${qSt.ans!==null&&i===cu.c?'✓ ':qSt.ans===i&&i!==cu.c?'✗ ':''}${a}</button>`}).join('')}
+    </div>
+    ${qSt.ans!==null?`<div style="margin:9px 14px;padding:11px 14px;border-radius:11px;background:#FFF8E1;border:1px dashed #F0C040;font-size:12px;color:#806020;line-height:1.5">💡 ${cu.e}</div>`:''}
+  `
+}
+function quizAns(i){
+  if(qSt.ans!==null)return
+  const ok=i===QQ[qSt.q].c; qSt.ans=i; if(ok)qSt.sc+=10; rQuiz()
+  setTimeout(()=>{qSt.ans=null;qSt.q++;rQuiz()},1200)
+}
+function finQuiz(){svGame('gquiz',qSt.sc,Math.floor(qSt.sc/2));document.getElementById('gquiz').innerHTML=gEnd('🧠',qSt.sc,QQ.length*10,'gquiz','var(--purple)')}
+
+// ════════════════════════════════════════════════════════════════════
+// GAME SPOT
+// ════════════════════════════════════════════════════════════════════
+const SI=[
+  {id:1,x:15,y:18,icon:'🌿',g:true},{id:2,x:62,y:14,icon:'🧴',g:false},
+  {id:3,x:38,y:52,icon:'🦋',g:true},{id:4,x:76,y:38,icon:'🥫',g:false},
+  {id:5,x:20,y:68,icon:'🌸',g:true},{id:6,x:54,y:62,icon:'📦',g:false},
+  {id:7,x:82,y:70,icon:'🦔',g:true},{id:8,x:44,y:28,icon:'☠️',g:false},
+  {id:9,x:8,y:42,icon:'🍄',g:true},{id:10,x:70,y:78,icon:'🍾',g:false},
+]
+let spTap=new Set()
+function startSpot(){spTap=new Set();rSpot()}
+function rSpot(){
+  const ws=SI.filter(i=>!i.g),fd=ws.filter(i=>spTap.has(i.id)).length,fa=SI.filter(i=>i.g&&spTap.has(i.id)).length,sc=Math.max(0,fd*10-fa*5)
+  document.getElementById('gspot').innerHTML=`
+    <div style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border)"><button onclick="go('games')" style="background:none;border:none;font-size:22px;color:var(--dim);cursor:pointer">←</button><div style="flex:1;font-weight:700;font-size:14px">🔍 Spot les déchets</div><div style="font-weight:800;color:var(--teal)">🗑 ${fd}/${ws.length}</div></div>
+    <div style="padding:5px 14px 4px;font-size:12px;color:var(--dim);text-align:center">Tape sur les déchets — laisse la nature tranquille !</div>
+    <div style="margin:6px 14px;flex:1;position:relative;height:250px;border-radius:14px;overflow:hidden;background:linear-gradient(to bottom,#A8D890 0%,#7AB060 55%,#5A9040 100%);border:1px solid var(--border)">
+      <svg style="position:absolute;bottom:0;width:100%" height="55" viewBox="0 0 400 55" preserveAspectRatio="none">${[20,60,100,160,220,280,340,380].map((x,i)=>`<g><rect x="${x-2}" y="30" width="4" height="25" fill="#4A6830"/><polygon points="${x},7 ${x-11},30 ${x+11},30" fill="${i%2?'#4A7030':'#5A8038'}"/></g>`).join('')}</svg>
+      ${SI.map(it=>`<button onclick="spT(${it.id})" style="position:absolute;left:${it.x}%;top:${it.y}%;transform:translate(-50%,-50%);background:${spTap.has(it.id)?(it.g?'#CC333344':'#52B78855'):'transparent'};border:${spTap.has(it.id)?`2px solid ${it.g?'var(--red)':'var(--leaf)'}`:'none'};border-radius:50%;width:44px;height:44px;cursor:${spTap.has(it.id)?'default':'pointer'};display:flex;align-items:center;justify-content:center;font-size:${spTap.has(it.id)?19:27}px;filter:${spTap.has(it.id)?'opacity(.4)':'none'};transition:all .2s">${spTap.has(it.id)?(it.g?'❌':'✓'):it.icon}</button>`).join('')}
+    </div>
+    <div style="padding:0 14px 12px"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:9px"><span>Trouvés : ${fd}/${ws.length}</span><span style="color:${fa>0?'var(--red)':'var(--muted)'}">Fausses alertes : ${fa}</span></div>
+    <button onclick="finSpot()" class="btn bw bl" style="background:var(--teal);border:none;color:#fff;border-radius:12px">Terminer → +${sc} pts</button></div>`
+}
+function spT(id){if(spTap.has(id))return; spTap=new Set([...spTap,id]); rSpot()}
+function finSpot(){
+  const ws=SI.filter(i=>!i.g),fd=ws.filter(i=>spTap.has(i.id)).length,fa=SI.filter(i=>i.g&&spTap.has(i.id)).length,sc=Math.max(0,fd*10-fa*5)
+  svGame('gspot',sc,Math.floor(sc/2)); document.getElementById('gspot').innerHTML=gEnd('🔍',sc,ws.length*10,'gspot','var(--teal)')
+}
+function svGame(g,sc,pts){
+  const td=new Date().toISOString().slice(0,10), pv=S.dg.d===td?S.dg.done:[], dn=pv.includes(g)?pv:[...pv,g]
+  const bo=dn.length===3&&!pv.includes('bonus')?50:0
+  S.pts+=pts+bo; S.gs[g.replace('g','')]=Math.max(S.gs[g.replace('g','')]||0,sc); S.dg={d:td,done:bo?[...dn,'bonus']:dn}
+  chkBg(); sv(); updPts()
+  if(bo)toast('⭐ +50 pts bonus défi du jour !')
+}
+function gEnd(ic,sc,mx,g,col){
+  const st=sc>=mx*.8?'🌟':sc>=mx*.5?'👍':'📚'
+  return`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:36px 20px;text-align:center;height:100%"><div style="font-size:46px">${ic}</div><div><h2 style="font-size:26px;font-weight:900">${sc} / ${mx}</h2><p style="color:var(--muted);margin-top:3px">${st}</p></div><div style="background:${col}22;color:${col};border-radius:20px;padding:5px 16px;font-weight:700;font-size:13px">+${Math.floor(sc/2)} pts TrailClean gagnés</div><button onclick="go('games')" class="btn bp bl" style="background:${col}">← Retour aux jeux</button><button onclick="go('${g}')" class="btn bs" style="padding:8px 18px;font-size:13px;border-radius:20px;margin-top:-4px">Rejouer</button></div>`
+}
+
+// ════════════════════════════════════════════════════════════════════
+// PROFILE
+// ════════════════════════════════════════════════════════════════════
+function rProf(){
+  const{c,n}=getMS(), eId=new Set(S.badges.map(b=>b.id))
+  document.getElementById('pf').innerHTML=`
+    <div style="background:var(--forest);padding:20px 14px 14px;display:flex;flex-direction:column;align-items:center;gap:7px">
+      <div style="font-size:50px">${S.user?.avatar||'🥾'}</div>
+      <div style="font-weight:800;font-size:17px;color:#fff">${S.user?.username||'Randonneur'}</div>
+      <div style="font-size:11px;color:#74C69D">${c.icon} ${c.label}</div>
+      ${n?`<div style="width:100%;max-width:240px;margin-top:4px"><div style="display:flex;justify-content:space-between;font-size:10px;color:#74C69D;margin-bottom:3px"><span>${S.pts} pts</span><span>${n.pts} pts → ${n.icon}</span></div><div style="height:5px;background:rgba(255,255,255,.2);border-radius:4px;overflow:hidden"><div style="width:${Math.min(100,(S.pts/n.pts)*100)}%;height:100%;background:var(--lime);border-radius:4px"></div></div></div>`:''}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;padding:11px 14px">
+      ${[['♻️',S.col,'Ramassés'],['⚡',S.pts,'Points'],['🥾',S.ses,'Randos'],['⚠️',S.sig,'Signalés'],['📍',+(S.km.toFixed(1)),'km'],['🏅',S.badges.length,'Badges']].map(([i,v,l])=>`<div style="background:#fff;border-radius:11px;padding:10px 6px;border:1px solid var(--border);text-align:center"><div style="font-size:18px">${i}</div><div style="font-size:19px;font-weight:900;color:var(--forest)">${v}</div><div style="font-size:9.5px;color:var(--muted);font-weight:600">${l}</div></div>`).join('')}
+    </div>
+    <button onclick="go('prog')" style="display:flex;align-items:center;justify-content:space-between;margin:0 14px 10px;padding:10px 14px;background:var(--forest)12;border-radius:11px;border:1px solid var(--forest)33;width:calc(100% - 28px);cursor:pointer"><div><div style="font-weight:700;font-size:13px">Mon Chemin de progression</div><div style="font-size:11px;color:var(--muted)">Badges · Récompenses →</div></div><span style="font-size:20px">🛤</span></button>
+    <div style="padding:0 14px 10px">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:8px">BADGES (${S.badges.length}/${BG.length})</div>
+      ${BG.map(b=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:10px;background:${eId.has(b.id)?'#52B78814':'var(--card)'};border:1px solid ${eId.has(b.id)?'#52B78844':'var(--border)'};opacity:${eId.has(b.id)?1:.5};margin-bottom:5px"><span style="font-size:21px;filter:${eId.has(b.id)?'none':'grayscale(100%)'}">${b.icon}</span><div style="flex:1;font-size:12px">${b.label}</div>${eId.has(b.id)?'<span style="color:var(--leaf)">✓</span>':'<span style="color:var(--muted)">🔒</span>'}</div>`).join('')}
+    </div>
+    <div style="padding:0 14px 10px">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:8px">SCORES JEUX</div>
+      ${[['tri','♻️','Tri déchets'],['quiz','🧠','Quiz Écologie'],['spot','🔍','Spot déchets']].map(([id,ic,lb])=>`<div style="display:flex;align-items:center;gap:9px;padding:8px 11px;margin-bottom:5px;background:#fff;border-radius:10px;border:1px solid var(--border)"><span style="font-size:19px">${ic}</span><div style="flex:1;font-size:12px">${lb}</div><b style="color:var(--forest);font-size:13px">${S.gs[id]||0} pts</b></div>`).join('')}
+    </div>
+    <div style="padding:0 14px 20px"><button onclick="logout()" class="btn bs bw">Déconnexion</button></div>`
+}
+function logout(){S.user=null;sv();location.reload()}
+
+// ════════════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('wz').addEventListener('click',function(e){if(e.target===this)clWz()})
+  document.getElementById('nav').style.display='none'
+  if(S.user)boot(); else go('auth')
+})
+</script>
+</body>
+</html>
