@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#2D6A4F">
+<title>TrailClean</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --forest:#2D6A4F;--mid:#40916C;--leaf:#52B788;--lime:#B7E04A;--pale:#D8F3DC;
+  --bg:#F4F3EE;--card:#E2E0D8;--border:#C8C6BE;
+  --text:#1A1A18;--dim:#5A5A52;--muted:#8A8A82;
+  --amber:#E09020;--red:#CC3333;--blue:#2850A0;--purple:#6030A0;--teal:#108080;--gold:#C89818;
+  --nav:62px;--safe:env(safe-area-inset-bottom,0px);
+}
+html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:15px}
+#app{height:100%;display:flex;flex-direction:column;overflow:hidden}
+.screen{display:none;flex:1;flex-direction:column;overflow:hidden}
+.screen.active{display:flex}
+.page{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:calc(var(--nav) + var(--safe) + 12px)}
+.page-fill{flex:1;overflow:hidden;display:flex;flex-direction:column}
+/* Nav */
+#nav{position:fixed;bottom:0;left:0;right:0;height:calc(var(--nav) + var(--safe));padding-bottom:var(--safe);background:#fff;border-top:1px solid var(--border);display:flex;z-index:200;box-shadow:0 -2px 12px rgba(0,0,0,.06)}
+.ni{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:none;border:none;color:var(--muted);font-size:10px;font-weight:500;cursor:pointer;position:relative;padding:4px 0}
+.ni.on{color:var(--forest)}
+.ni-icon{font-size:22px;line-height:1}
+.ni-dot{position:absolute;top:5px;right:25%;width:7px;height:7px;border-radius:50%;background:var(--red);border:2px solid #fff}
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:11px 18px;border-radius:10px;border:none;font-size:15px;font-weight:600;cursor:pointer;transition:opacity .15s,transform .1s;font-family:inherit;white-space:nowrap}
+.btn:active{transform:scale(.97);opacity:.88}
+.btn-p{background:var(--forest);color:#fff}
+.btn-s{background:var(--card);color:var(--text);border:1px solid var(--border)}
+.btn-a{background:var(--amber);color:#fff}
+.btn-r{background:var(--red);color:#fff}
+.btn-full{width:100%}
+.btn-lg{padding:13px 24px;font-size:16px}
+.btn-sm{padding:6px 12px;font-size:12px;border-radius:20px}
+.btn:disabled{opacity:.4;pointer-events:none}
+/* Cards */
+.card{background:#fff;border-radius:14px;border:1px solid var(--border);padding:14px}
+/* Inputs */
+.inp{width:100%;padding:12px 14px;border-radius:10px;border:1.5px solid var(--border);background:#fff;font-size:16px;font-family:inherit;outline:none;transition:border-color .15s}
+.inp:focus{border-color:var(--leaf)}
+/* Sheet */
+.backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300;display:flex;align-items:flex-end}
+.sheet{background:#fff;border-radius:18px 18px 0 0;width:100%;padding:12px 16px calc(24px + var(--safe));max-height:92vh;overflow-y:auto}
+.handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px}
+/* Tag */
+.tag{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
+/* Progress */
+.pbar{height:6px;background:var(--card);border-radius:4px;overflow:hidden;border:1px solid var(--border)}
+.pfill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--leaf),var(--lime));transition:width .4s}
+/* Toast */
+#toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:var(--text);color:#fff;padding:10px 20px;border-radius:24px;font-size:13px;font-weight:500;z-index:999;display:none;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.2);animation:slideD .2s ease}
+@keyframes slideD{from{opacity:0;transform:translateX(-50%) translateY(-8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+/* Section header */
+.sh{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px}
+/* Map */
+.leaflet-container{font-family:inherit!important}
+.leaflet-control-zoom{display:none!important}
+/* Auth */
+#auth-screen{justify-content:center;align-items:center;background:var(--forest);padding:24px}
+/* Camera */
+#cam-video{width:100%;display:block;object-fit:cover;min-height:240px;background:#111}
+/* Animations */
+@keyframes ping{0%,100%{transform:scale(1);opacity:.7}50%{transform:scale(1.9);opacity:0}}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.fade{animation:fade .25s ease}
+/* Game */
+.gscene{position:relative;border-radius:14px;overflow:hidden;background:linear-gradient(to bottom,#A8D890 0%,#7AB060 100%)}
+.gitem{position:absolute;transform:translate(-50%,-50%);background:none;border:none;font-size:28px;cursor:pointer;width:46px;height:46px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:transform .15s}
+.gitem:active{transform:translate(-50%,-50%) scale(.8)}
+/* Leaderboard trail */
+.trail-svg{border-radius:14px;overflow:hidden;border:1px solid var(--border)}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- AUTH -->
+  <div id="auth-screen" class="screen">
+    <div style="text-align:center;margin-bottom:28px">
+      <div style="font-size:52px;margin-bottom:8px">🏔️</div>
+      <h1 style="font-size:34px;font-weight:900;color:var(--lime);letter-spacing:-1px">TrailClean</h1>
+      <p style="color:#74C69D;font-size:15px;margin-top:4px;font-style:italic">Rando. Ramasse. Compte.</p>
+    </div>
+    <div style="background:#fff;border-radius:20px;padding:24px;width:100%;max-width:380px;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+      <div id="auth-tabs" style="display:flex;gap:8px;margin-bottom:20px">
+        <button class="btn btn-p" id="tab-login" style="flex:1" onclick="authTab('login')">Connexion</button>
+        <button class="btn btn-s" id="tab-reg" style="flex:1" onclick="authTab('reg')">S'inscrire</button>
+      </div>
+      <div id="field-username" style="margin-bottom:12px;display:none">
+        <label style="font-size:12px;font-weight:600;color:var(--dim);display:block;margin-bottom:4px">Pseudo</label>
+        <input class="inp" id="inp-username" type="text" placeholder="TonPseudo">
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:12px;font-weight:600;color:var(--dim);display:block;margin-bottom:4px">Email</label>
+        <input class="inp" id="inp-email" type="email" placeholder="toi@exemple.fr">
+      </div>
+      <div style="margin-bottom:20px">
+        <label style="font-size:12px;font-weight:600;color:var(--dim);display:block;margin-bottom:4px">Mot de passe</label>
+        <input class="inp" id="inp-pwd" type="password" placeholder="••••••••">
+      </div>
+      <button class="btn btn-p btn-full btn-lg" onclick="doAuth()">Connexion</button>
+      <div style="text-align:center;margin-top:14px">
+        <button onclick="demoLogin()" style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer">Continuer sans compte (mode démo) →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAP -->
+  <div id="map-screen" class="screen">
+    <div class="page-fill">
+      <div id="leafmap" style="flex:1;position:relative"></div>
+      <div style="padding:10px 14px;background:#fff;border-top:1px solid var(--border)">
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-p" style="flex:1" onclick="startAdd('collect')">📷 Ramasser</button>
+          <button class="btn btn-a" style="flex:1" onclick="startAdd('signal')">⚠️ Signaler</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HIKE -->
+  <div id="hike-screen" class="screen">
+    <div class="page-fill">
+      <div id="hike-bar" style="background:var(--forest);padding:7px 14px;display:none;align-items:center;gap:8px">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--lime);box-shadow:0 0 6px var(--lime);animation:ping 2s infinite"></div>
+        <span id="hike-timer" style="color:#fff;font-weight:700;font-size:14px">EN COURS — 00:00</span>
+      </div>
+      <div id="hike-stats" style="display:none;background:#fff;border-bottom:1px solid var(--border);padding:8px 14px">
+        <div style="display:flex;gap:8px">
+          <div style="flex:1;text-align:center"><div id="hs-waste" style="font-size:22px;font-weight:900;color:var(--forest)">0</div><div style="font-size:9px;font-weight:700;color:var(--muted);letter-spacing:1px">DÉCHETS</div></div>
+          <div style="flex:1;text-align:center"><div id="hs-pts" style="font-size:22px;font-weight:900;color:var(--forest)">+0</div><div style="font-size:9px;font-weight:700;color:var(--muted);letter-spacing:1px">POINTS</div></div>
+          <div style="flex:1;text-align:center"><div id="hs-km" style="font-size:22px;font-weight:900;color:var(--forest)">0.0</div><div style="font-size:9px;font-weight:700;color:var(--muted);letter-spacing:1px">KM</div></div>
+        </div>
+      </div>
+      <div id="hikemap" style="flex:1"></div>
+      <div style="padding:12px 14px;background:#fff;border-top:1px solid var(--border)">
+        <div id="hike-add-btns" style="display:none;gap:8px;margin-bottom:10px">
+          <button class="btn btn-p" style="flex:1" onclick="startAdd('collect',true)">📷 Je ramasse</button>
+          <button class="btn btn-a" style="flex:1" onclick="startAdd('signal',true)">⚠️ Signaler</button>
+        </div>
+        <button id="hike-btn" class="btn btn-p btn-full btn-lg" onclick="toggleHike()">▶ Démarrer une rando</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD FLOW: ACTION SHEET -->
+  <div id="add-screen" class="screen" style="justify-content:flex-end">
+    <div style="flex:1;background:rgba(0,0,0,.4)" onclick="goBack()"></div>
+    <div class="sheet">
+      <div class="handle"></div>
+      <div id="add-gps-tag" style="background:var(--card);border-radius:10px;padding:8px 12px;margin-bottom:14px;font-size:12px;color:var(--muted)">📍 Récupération GPS...</div>
+      <p style="font-weight:700;font-size:18px;margin-bottom:14px">Que veux-tu faire ?</p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button onclick="chooseMode('collect')" style="display:flex;align-items:flex-start;gap:14px;padding:14px;border-radius:14px;border:1.5px solid var(--leaf);background:#52B78814;text-align:left;cursor:pointer">
+          <span style="font-size:32px">📷</span>
+          <div>
+            <div style="font-weight:700;font-size:15px;color:var(--forest)">Je ramasse</div>
+            <div style="font-size:13px;color:var(--dim);margin-top:2px">Photo + type → pin vert sur la carte</div>
+            <span class="tag" style="margin-top:6px;background:#2D6A4F18;color:var(--forest)">+5 à +15 pts</span>
+          </div>
+        </button>
+        <button onclick="chooseMode('signal')" style="display:flex;align-items:flex-start;gap:14px;padding:14px;border-radius:14px;border:1.5px solid var(--amber);background:#E0902012;text-align:left;cursor:pointer">
+          <span style="font-size:32px">⚠️</span>
+          <div>
+            <div style="font-weight:700;font-size:15px;color:var(--amber)">Je signale sans ramasser</div>
+            <div style="font-size:13px;color:var(--dim);margin-top:2px">Pin orange · +bonus quand quelqu'un ramasse</div>
+            <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+              <span class="tag" style="background:#E0902018;color:var(--amber)">+2 pts signal</span>
+              <span class="tag" style="background:#2D6A4F18;color:var(--forest)">+5 pts bonus différé</span>
+            </div>
+          </div>
+        </button>
+        <button onclick="goBack()" style="padding:12px;border:none;background:none;color:var(--muted);font-size:15px;cursor:pointer">Annuler</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD FLOW: TYPE SELECT -->
+  <div id="type-screen" class="screen">
+    <div class="page">
+      <div id="type-header" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border)">
+        <button onclick="goBack()" style="background:none;border:none;font-size:22px;color:var(--dim);cursor:pointer">←</button>
+        <div>
+          <div id="type-title" style="font-weight:700;font-size:15px;color:var(--forest)">📷 Ramasser un déchet</div>
+          <div style="font-size:12px;color:var(--muted)">Choisis le type</div>
+        </div>
+      </div>
+      <div style="padding:14px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px" id="type-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD FLOW: CAMERA -->
+  <div id="cam-screen" class="screen">
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border)">
+      <button onclick="stopCam();goBack()" style="background:none;border:none;font-size:22px;color:var(--dim);cursor:pointer">←</button>
+      <div id="cam-type-label" style="font-weight:700;font-size:15px">🧴 Plastique</div>
+    </div>
+    <div style="flex:1;position:relative;background:#111;overflow:hidden">
+      <video id="cam-video" autoplay playsinline muted></video>
+      <canvas id="cam-canvas" style="display:none"></canvas>
+      <img id="cam-preview" style="display:none;width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0">
+      <div id="cam-overlay" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#1a1a1a;flex-direction:column;gap:10px">
+        <div style="font-size:36px">📷</div>
+        <div style="color:#fff;font-size:14px">Ouverture de la caméra...</div>
+      </div>
+      <button id="cam-retake" onclick="retakePhoto()" style="display:none;position:absolute;top:12px;right:12px;background:rgba(0,0,0,.55);border:none;color:#fff;border-radius:20px;padding:5px 14px;font-size:13px;cursor:pointer">Reprendre</button>
+    </div>
+    <div style="padding:12px 14px;background:#fff;border-top:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:16px;justify-content:center;margin-bottom:12px">
+        <button onclick="adjQty(-1)" style="width:38px;height:38px;border-radius:50%;border:1.5px solid var(--border);background:#fff;font-size:20px;font-weight:700;cursor:pointer">−</button>
+        <span id="qty-val" style="font-size:34px;font-weight:900;min-width:40px;text-align:center">1</span>
+        <button onclick="adjQty(1)" style="width:38px;height:38px;border-radius:50%;border:1.5px solid var(--border);background:#fff;font-size:20px;font-weight:700;cursor:pointer">+</button>
+      </div>
+      <button id="cam-btn" class="btn btn-p btn-full btn-lg" onclick="camAction()">📷 Prendre la photo</button>
+    </div>
+  </div>
+
+  <!-- ADD FLOW: CONFIRM -->
+  <div id="confirm-screen" class="screen" style="align-items:center;justify-content:center;padding:32px 20px;gap:18px;text-align:center">
+    <div id="confirm-ring" style="width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:36px"></div>
+    <div>
+      <h2 id="confirm-title" style="font-size:24px;font-weight:900"></h2>
+      <p id="confirm-sub" style="color:var(--muted);font-size:14px;margin-top:4px"></p>
+    </div>
+    <div id="confirm-pts-card" class="card" style="width:100%;max-width:280px;padding:20px;text-align:center"></div>
+    <div style="background:#FFF8E1;border-radius:10px;padding:10px 14px;border:1.5px dashed #F0C040;width:100%;max-width:280px;font-size:13px;color:#806020">
+      🏅 Continue à ramasser pour débloquer des badges !
+    </div>
+    <button id="confirm-back-btn" class="btn btn-p btn-lg" style="max-width:280px;width:100%" onclick="confirmBack()">← Retour à la carte</button>
+  </div>
+
+  <!-- LEADERBOARD -->
+  <div id="lead-screen" class="screen">
+    <div class="page" id="lead-content"></div>
+  </div>
+
+  <!-- CHALLENGES -->
+  <div id="chal-screen" class="screen">
+    <div class="page" id="chal-content"></div>
+  </div>
+
+  <!-- GAMES HUB -->
+  <div id="games-screen" class="screen">
+    <div class="page" id="games-content"></div>
+  </div>
+
+  <!-- GAME TRI -->
+  <div id="gtri-screen" class="screen">
+    <div id="gtri-content" style="display:flex;flex-direction:column;flex:1;overflow:hidden"></div>
+  </div>
+
+  <!-- GAME QUIZ -->
+  <div id="gquiz-screen" class="screen">
+    <div id="gquiz-content" style="display:flex;flex-direction:column;flex:1;overflow:hidden"></div>
+  </div>
+
+  <!-- GAME SPOT -->
+  <div id="gspot-screen" class="screen">
+    <div id="gspot-content" style="display:flex;flex-direction:column;flex:1;overflow:hidden"></div>
+  </div>
+
+  <!-- PROFILE -->
+  <div id="prof-screen" class="screen">
+    <div class="page" id="prof-content"></div>
+  </div>
+
+  <!-- PROGRESS -->
+  <div id="prog-screen" class="screen">
+    <div class="page" id="prog-content"></div>
+  </div>
+
+  <!-- WAZE OVERLAY -->
+  <div id="waze-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:400;align-items:flex-end">
+    <div class="sheet" id="waze-sheet"></div>
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <nav id="nav" style="display:none">
+    <button class="ni on" id="ni-map" onclick="goScreen('map')"><span class="ni-icon">🗺️</span><span>Carte</span></button>
+    <button class="ni" id="ni-hike" onclick="goScreen('hike')"><span class="ni-icon">⏺</span><span>Rando</span></button>
+    <button class="ni" id="ni-lead" onclick="goScreen('lead')"><span class="ni-icon">🏔</span><span>Classement</span></button>
+    <button class="ni" id="ni-chal" onclick="goScreen('chal')"><span class="ni-icon">⚔️</span><span>Défis</span></button>
+    <button class="ni" id="ni-games" onclick="goScreen('games')"><span class="ni-icon">🎮</span><span>Jeux</span></button>
+    <button class="ni" id="ni-prof" onclick="goScreen('prof')"><span class="ni-icon">🥾</span><span>Profil</span></button>
+  </nav>
+</div>
+<div id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// STATE & PERSISTENCE
+// ═══════════════════════════════════════════════════════════════════
+const STORAGE_KEY = 'trailclean_v2'
+let S = {
+  user: null, points:0, collectCount:0, signalCount:0,
+  sessionCount:0, kmTotal:0, bonusReceived:0,
+  badges:[], wasteLogs:[], gameScores:{tri:0,quiz:0,spot:0},
+  dailyGames:{date:'',done:[]},
+  activeSession: null
+}
+function load(){ try{ const d=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}'); Object.assign(S,d) }catch(e){} }
+function save(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(S)) }catch(e){} }
+load()
+
+const WASTE_TYPES=[
+  {id:'plastic',icon:'🧴',label:'Plastique',pts:5,color:'#3060A0'},
+  {id:'glass',icon:'🍾',label:'Verre',pts:8,color:'#2D6A4F'},
+  {id:'metal',icon:'🥫',label:'Métal',pts:6,color:'#707070'},
+  {id:'paper',icon:'📦',label:'Papier',pts:3,color:'#C89818'},
+  {id:'hazardous',icon:'☠️',label:'Dangereux',pts:15,color:'#CC3333'},
+  {id:'organic',icon:'🍌',label:'Organique',pts:2,color:'#6A9010'},
+]
+const BADGES=[
+  {id:'first_collect',icon:'🌱',label:'Premier déchet ramassé',check:()=>S.collectCount>=1},
+  {id:'first_hike',icon:'🥾',label:'Première rando',check:()=>S.sessionCount>=1},
+  {id:'first_signal',icon:'👁️',label:'Premier signal',check:()=>S.signalCount>=1},
+  {id:'ten_collect',icon:'♻️',label:'10 déchets ramassés',check:()=>S.collectCount>=10},
+  {id:'hundred_pts',icon:'⚡',label:'100 points',check:()=>S.points>=100},
+  {id:'eco_hero',icon:'🦸',label:'Eco-Héros (500 pts)',check:()=>S.points>=500},
+]
+const MILESTONES=[
+  {pts:0,label:'Départ',icon:'🚩',reward:null},
+  {pts:50,label:'Eco-Débutant',icon:'🌱',reward:null},
+  {pts:200,label:'Sentinelle',icon:'🦺',reward:null},
+  {pts:500,label:'Gardien',icon:'🛡️',reward:'Bon Décathlon 5€'},
+  {pts:1000,label:'Explorateur',icon:'🧭',reward:'Bon Décathlon 10€'},
+  {pts:2500,label:'Eco-Héros',icon:'⚡',reward:'Équipement Salomon'},
+]
+function getMilestone(){ let c=MILESTONES[0],n=MILESTONES[1]; for(let i=0;i<MILESTONES.length;i++){ if(S.points>=MILESTONES[i].pts){c=MILESTONES[i];n=MILESTONES[i+1]||null} } return{c,n} }
+function checkBadges(){
+  const earned=new Set(S.badges.map(b=>b.id))
+  BADGES.forEach(b=>{ if(!earned.has(b.id)&&b.check()){ S.badges.push({...b,earnedAt:Date.now()}); toast(`🏅 Badge débloqué : ${b.icon} ${b.label}`) } })
+  save()
+}
+function uid(){ return Math.random().toString(36).slice(2,10) }
+
+// ═══════════════════════════════════════════════════════════════════
+// UI UTILITIES
+// ═══════════════════════════════════════════════════════════════════
+let _toastTimer
+function toast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.style.display='block'; clearTimeout(_toastTimer); _toastTimer=setTimeout(()=>el.style.display='none',3200) }
+
+function pbar(val,max,color){ const pct=Math.min(100,Math.round(val/max*100)); return `<div class="pbar"><div class="pfill" style="width:${pct}%;${color?'background:'+color:''}"></div></div>` }
+
+function tag(text,bg,color){ return `<span class="tag" style="background:${bg};color:${color}">${text}</span>` }
+
+// ═══════════════════════════════════════════════════════════════════
+// SCREEN ROUTING
+// ═══════════════════════════════════════════════════════════════════
+let currentScreen='auth', prevScreen='map'
+const NAV_SCREENS=['map','hike','lead','chal','games','prof']
+
+function goScreen(name){
+  if(name===currentScreen) return
+  prevScreen=currentScreen
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'))
+  document.getElementById(name+'-screen').classList.add('active')
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'))
+  const ni=document.getElementById('ni-'+name)
+  if(ni) ni.classList.add('on')
+  document.getElementById('nav').style.display = NAV_SCREENS.includes(name) ? 'flex' : 'none'
+  currentScreen=name
+  if(name==='map') initMap()
+  else if(name==='hike') initHikeMap()
+  else if(name==='lead') renderLead()
+  else if(name==='chal') renderChal()
+  else if(name==='games') renderGames()
+  else if(name==='prof') renderProf()
+  else if(name==='prog') renderProg()
+  else if(name==='gtri') startGameTri()
+  else if(name==='gquiz') startGameQuiz()
+  else if(name==='gspot') startGameSpot()
+}
+function goBack(){ goScreen(prevScreen) }
+
+// ═══════════════════════════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════════════════════════
+let authMode='login'
+function authTab(m){
+  authMode=m
+  document.getElementById('tab-login').className='btn '+(m==='login'?'btn-p':'btn-s')
+  document.getElementById('tab-reg').className='btn '+(m==='reg'?'btn-p':'btn-s')
+  document.getElementById('field-username').style.display=m==='reg'?'block':'none'
+}
+function doAuth(){
+  const email=document.getElementById('inp-email').value
+  const username=authMode==='reg'?document.getElementById('inp-username').value:(email.split('@')[0]||'Randonneur')
+  S.user={id:'u_'+uid(),username:username||'Randonneur',email,avatar:'🥾'}
+  save(); bootApp()
+}
+function demoLogin(){ S.user={id:'demo',username:'Randonneur',email:'demo@trailclean.fr',avatar:'🥾'}; save(); bootApp() }
+
+function bootApp(){
+  document.getElementById('nav').style.display='flex'
+  goScreen('map')
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MAP
+// ═══════════════════════════════════════════════════════════════════
+let mapInst=null, mapInitialized=false
+const MAP_CENTER=[47.808,7.081]
+const MOCK_LOGS=[
+  {id:'m1',type:'plastic',icon:'🧴',mode:'collect',lat:47.812,lng:7.075,pts:5},
+  {id:'m2',type:'glass',icon:'🍾',mode:'signal',lat:47.820,lng:7.095,pts:2,signaledBy:'rando_Vosges'},
+  {id:'m3',type:'metal',icon:'🥫',mode:'collect',lat:47.800,lng:7.065,pts:6},
+  {id:'m4',type:'hazardous',icon:'☠️',mode:'signal',lat:47.815,lng:7.060,pts:2,signaledBy:'EcoVosgien'},
+]
+
+function emojiIcon(emoji,sz=28,extra=''){
+  return L.divIcon({
+    html:`<div style="font-size:${sz}px;line-height:1;filter:drop-shadow(0 1.5px 3px rgba(0,0,0,.35));transform:translate(-50%,-100%);${extra}">${emoji}</div>`,
+    iconSize:[sz,sz],iconAnchor:[0,0],className:''
+  })
+}
+
+function initMap(){
+  if(mapInitialized) return
+  mapInitialized=true
+  setTimeout(()=>{
+    mapInst=L.map('leafmap',{center:MAP_CENTER,zoom:13,zoomControl:false,attributionControl:false})
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM',maxZoom:19}).addTo(mapInst)
+    L.control.attribution({position:'bottomleft',prefix:''}).addAttribution('<a href="https://osm.org">© OSM</a>').addTo(mapInst)
+    refreshMapPins()
+    locateUser()
+  },50)
+}
+
+let userMarker=null
+function locateUser(){
+  if(!navigator.geolocation) return
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const{latitude:lat,longitude:lng}=pos.coords
+    if(mapInst){ mapInst.setView([lat,lng],15); placeUserMarker(lat,lng,mapInst) }
+    if(hikeMap){ hikeMap.setView([lat,lng],15); placeUserMarker(lat,lng,hikeMap,true) }
+    checkWaze(lat,lng)
+  },()=>{},{enableHighAccuracy:true,timeout:10000})
+}
+
+function placeUserMarker(lat,lng,map,isHike){
+  const icon=L.divIcon({
+    html:`<div style="width:14px;height:14px;border-radius:50%;background:#2D6A4F;border:3px solid #fff;box-shadow:0 0 0 4px #52B78844"></div>`,
+    iconSize:[14,14],iconAnchor:[7,7],className:''
+  })
+  if(!isHike){
+    if(userMarker) userMarker.setLatLng([lat,lng])
+    else userMarker=L.marker([lat,lng],{icon,zIndexOffset:1000}).addTo(map)
+  } else {
+    if(hikeUserMarker) hikeUserMarker.setLatLng([lat,lng])
+    else hikeUserMarker=L.marker([lat,lng],{icon,zIndexOffset:1000}).addTo(map)
+  }
+}
+
+let mapMarkers=[]
+function refreshMapPins(){
+  if(!mapInst) return
+  mapMarkers.forEach(m=>m.remove())
+  mapMarkers=[]
+  const all=[...(S.wasteLogs.length?S.wasteLogs:MOCK_LOGS)]
+  all.forEach(log=>{
+    if(log.resolved==='gone') return
+    const isSignal=log.mode==='signal'
+    const icon=emojiIcon(log.icon||(isSignal?'⚠️':'🗑️'),24,isSignal?'filter:drop-shadow(0 0 5px #E09020)':'')
+    const m=L.marker([log.lat,log.lng],{icon})
+      .bindPopup(`<div style="font-family:system-ui;min-width:110px"><div style="font-size:24px">${log.icon}</div><b>${log.type||'Déchet'}</b><br><span style="font-size:11px;color:#888">${isSignal?'⚠️ Signalé':'✅ Collecté'}${log.signaledBy?' par @'+log.signaledBy:''}</span></div>`,{maxWidth:150})
+      .addTo(mapInst)
+    mapMarkers.push(m)
+  })
+}
+
+function checkWaze(lat,lng){
+  const signals=[...(S.wasteLogs.length?S.wasteLogs:MOCK_LOGS)].filter(w=>w.mode==='signal'&&!w.resolved)
+  signals.forEach(sig=>{
+    const d=distM(lat,lng,sig.lat,sig.lng)
+    if(d<100) showWaze(sig)
+  })
+}
+function distM(a,b,c,d){ const R=6371000,dLat=(c-a)*Math.PI/180,dLng=(d-b)*Math.PI/180,e=Math.sin(dLat/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dLng/2)**2; return R*2*Math.atan2(Math.sqrt(e),Math.sqrt(1-e)) }
+
+// ═══════════════════════════════════════════════════════════════════
+// WAZE
+// ═══════════════════════════════════════════════════════════════════
+let wazeLog=null
+function showWaze(log){
+  wazeLog=log
+  const ageH=Math.round((Date.now()-(log.createdAt||Date.now()-86400000))/3600000)
+  document.getElementById('waze-sheet').innerHTML=`
+    <div class="handle"></div>
+    <div style="background:#E0902018;border:1.5px solid #E0902055;border-radius:12px;padding:12px 14px;display:flex;gap:12px;align-items:flex-start;margin-bottom:16px">
+      <span style="font-size:32px">${log.icon||'⚠️'}</span>
+      <div>
+        <div style="font-weight:700;font-size:15px;color:var(--amber)">Déchet signalé près de toi</div>
+        <div style="font-size:13px;color:var(--dim);margin-top:3px">Signalé il y a <b>${ageH}h</b>${log.signaledBy?' par @'+log.signaledBy:''}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">📍 À environ 50m</div>
+      </div>
+    </div>
+    <p style="font-weight:700;font-size:17px;text-align:center;margin-bottom:14px">Est-il encore là ?</p>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button onclick="wazeReply('present')" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:1.5px solid var(--border);background:#fff;text-align:left;cursor:pointer">
+        <span style="font-size:24px">👀</span><div style="flex:1"><b>Oui, toujours là</b><div style="font-size:12px;color:var(--muted)">Confirme sa présence</div></div><b style="color:var(--leaf);font-size:14px">+1 pt</b>
+      </button>
+      <button onclick="wazeCollect()" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:1.5px solid var(--forest);background:#2D6A4F12;text-align:left;cursor:pointer">
+        <span style="font-size:24px">💪</span><div style="flex:1"><b style="color:var(--forest)">Je le ramasse !</b><div style="font-size:12px;color:var(--muted)">Photo pour valider · bonus au signaleur</div></div><b style="color:var(--forest);font-size:14px">+8 pts</b>
+      </button>
+      <button onclick="wazeReply('gone')" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:1.5px solid var(--border);background:#fff;text-align:left;cursor:pointer">
+        <span style="font-size:24px">✅</span><div style="flex:1"><b>Non, déjà ramassé</b><div style="font-size:12px;color:var(--muted)">Supprime le pin de la carte</div></div><b style="color:var(--leaf);font-size:14px">+2 pts</b>
+      </button>
+      <button onclick="closeWaze()" style="padding:10px;border:none;background:none;color:var(--muted);font-size:15px;cursor:pointer">Passer</button>
+    </div>`
+  document.getElementById('waze-overlay').style.display='flex'
+}
+function closeWaze(){ document.getElementById('waze-overlay').style.display='none'; wazeLog=null }
+function wazeReply(status){
+  const pts=status==='gone'?2:1
+  S.points+=pts; save()
+  if(wazeLog) { wazeLog.resolved=status; wazeLog.resolvedAt=Date.now() }
+  closeWaze()
+  toast(status==='gone'?'✅ +2 pts · Merci !':'+1 pt · Confirmation !')
+  refreshMapPins()
+}
+function wazeCollect(){
+  closeWaze()
+  startAdd('collect')
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ADD FLOW
+// ═══════════════════════════════════════════════════════════════════
+let addState={mode:'collect',lat:MAP_CENTER[0],lng:MAP_CENTER[1],wasteType:null,photo:null,qty:1,fromHike:false}
+let camStream=null, photoCaptured=false
+
+function startAdd(mode,fromHike){
+  addState={mode,lat:MAP_CENTER[0],lng:MAP_CENTER[1],wasteType:null,photo:null,qty:1,fromHike:fromHike||false}
+  // Try to get current location
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(pos=>{
+      addState.lat=pos.coords.latitude
+      addState.lng=pos.coords.longitude
+      document.getElementById('add-gps-tag').textContent=`📍 ${addState.lat.toFixed(5)}°N · ${addState.lng.toFixed(5)}°E`
+    },()=>{},{enableHighAccuracy:true,timeout:5000})
+  }
+  goScreen('add')
+}
+
+function chooseMode(mode){
+  addState.mode=mode
+  renderTypeGrid()
+  goScreen('type')
+}
+
+function renderTypeGrid(){
+  const isSignal=addState.mode==='signal'
+  document.getElementById('type-title').textContent=isSignal?'⚠️ Signaler un déchet':'📷 Ramasser un déchet'
+  document.getElementById('type-title').style.color=isSignal?'var(--amber)':'var(--forest)'
+  document.getElementById('type-grid').innerHTML=WASTE_TYPES.map(wt=>`
+    <button onclick="selectType('${wt.id}')" style="display:flex;align-items:center;gap:10px;padding:14px 12px;border-radius:12px;border:1.5px solid var(--border);background:#fff;text-align:left;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+      <span style="font-size:28px">${wt.icon}</span>
+      <div>
+        <div style="font-weight:600;font-size:13px">${wt.label}</div>
+        <div style="font-size:11px;font-weight:700;color:${isSignal?'var(--amber)':'var(--forest)'}">
+          ${isSignal?`+2 pts (+${wt.pts} bonus)`:'+'+wt.pts+' pts'}
+        </div>
+      </div>
+    </button>`).join('')
+}
+
+function selectType(id){
+  addState.wasteType=WASTE_TYPES.find(w=>w.id===id)
+  if(addState.mode==='signal'){ submitLog(); return }
+  openCamera()
+}
+
+// CAMERA
+function openCamera(){
+  prevScreen='type'
+  goScreen('cam')
+  photoCaptured=false
+  document.getElementById('cam-btn').textContent='📷 Prendre la photo'
+  document.getElementById('qty-val').textContent='1'
+  addState.qty=1
+  document.getElementById('cam-type-label').textContent=`${addState.wasteType.icon} ${addState.wasteType.label}`
+  document.getElementById('cam-preview').style.display='none'
+  document.getElementById('cam-retake').style.display='none'
+
+  const video=document.getElementById('cam-video')
+  const overlay=document.getElementById('cam-overlay')
+  overlay.style.display='flex'
+  overlay.innerHTML='<div style="font-size:36px">📷</div><div style="color:#fff;font-size:14px">Ouverture de la caméra...</div>'
+
+  navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}},audio:false})
+    .then(stream=>{
+      camStream=stream
+      video.srcObject=stream
+      video.style.display='block'
+      overlay.style.display='none'
+    })
+    .catch(err=>{
+      overlay.innerHTML=`<div style="font-size:36px">🔒</div>
+        <div style="color:#fff;font-size:14px;text-align:center;padding:0 20px">Caméra non disponible<br><small>${err.message}</small></div>
+        <button onclick="skipPhoto()" style="margin-top:12px;background:var(--forest);color:#fff;border:none;padding:10px 20px;border-radius:10px;font-size:14px;cursor:pointer">Continuer sans photo</button>`
+    })
+}
+
+function stopCam(){
+  if(camStream){ camStream.getTracks().forEach(t=>t.stop()); camStream=null }
+  document.getElementById('cam-video').srcObject=null
+}
+
+function skipPhoto(){ addState.photo='demo'; stopCam(); submitLog() }
+
+function camAction(){
+  if(photoCaptured){ submitLog(); return }
+  const video=document.getElementById('cam-video')
+  const canvas=document.getElementById('cam-canvas')
+  const maxDim=800
+  const ratio=Math.min(maxDim/video.videoWidth,maxDim/video.videoHeight,1)
+  canvas.width=Math.round(video.videoWidth*ratio)
+  canvas.height=Math.round(video.videoHeight*ratio)
+  canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height)
+  addState.photo=canvas.toDataURL('image/jpeg',0.72)
+  stopCam()
+  const preview=document.getElementById('cam-preview')
+  preview.src=addState.photo; preview.style.display='block'
+  document.getElementById('cam-video').style.display='none'
+  document.getElementById('cam-retake').style.display='block'
+  document.getElementById('cam-btn').textContent=`Valider · +${addState.wasteType.pts*addState.qty} pts →`
+  photoCaptured=true
+}
+
+function retakePhoto(){
+  photoCaptured=false
+  document.getElementById('cam-preview').style.display='none'
+  document.getElementById('cam-retake').style.display='none'
+  document.getElementById('cam-btn').textContent='📷 Prendre la photo'
+  openCamera()
+}
+
+function adjQty(d){
+  addState.qty=Math.max(1,addState.qty+d)
+  document.getElementById('qty-val').textContent=addState.qty
+  if(photoCaptured&&addState.wasteType)
+    document.getElementById('cam-btn').textContent=`Valider · +${addState.wasteType.pts*addState.qty} pts →`
+}
+
+// SUBMIT
+function submitLog(){
+  const isSignal=addState.mode==='signal'
+  const pts=isSignal?2:addState.wasteType.pts*addState.qty
+  const log={
+    id:uid(), type:addState.wasteType.id, icon:addState.wasteType.icon,
+    mode:addState.mode, lat:addState.lat, lng:addState.lng,
+    photo:addState.photo, qty:addState.qty, pts, createdAt:Date.now()
+  }
+  S.wasteLogs.push(log)
+  S.points+=pts
+  if(isSignal) S.signalCount++; else S.collectCount++
+  if(addState.fromHike && S.activeSession){
+    S.activeSession.wasteCount++
+    S.activeSession.ptsEarned+=pts
+  }
+  checkBadges(); save()
+  refreshMapPins()
+  if(!isSignal) stopCam()
+  showConfirm(isSignal,pts)
+}
+
+function showConfirm(isSignal,pts){
+  document.getElementById('confirm-ring').style.cssText=`width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:38px;background:${isSignal?'#E0902022':'#52B78822'};border:3px solid ${isSignal?'var(--amber)':'var(--forest)'}`
+  document.getElementById('confirm-ring').textContent=isSignal?'⚠️':'✓'
+  document.getElementById('confirm-title').textContent=isSignal?'Signal enregistré !':'Bien joué !'
+  document.getElementById('confirm-sub').textContent=`${addState.wasteType.icon} ${addState.wasteType.label}${addState.qty>1?' × '+addState.qty:''}`
+  document.getElementById('confirm-pts-card').innerHTML=isSignal?`
+    <div style="font-size:34px;font-weight:900;color:var(--amber)">+2 pts</div>
+    <div style="font-size:13px;color:var(--muted);margin-top:4px">signal immédiat</div>
+    <div style="margin-top:12px;padding:8px 12px;background:#2D6A4F12;border-radius:8px;font-size:12px;color:var(--forest);font-weight:600">🎁 +${addState.wasteType.pts} pts bonus si quelqu'un ramasse !</div>
+  `:`
+    <div style="font-size:42px;font-weight:900;color:var(--forest)">+${pts}</div>
+    <div style="font-size:13px;color:var(--muted);margin-top:4px">points gagnés</div>
+  `
+  document.getElementById('confirm-back-btn').textContent=`← Retour ${addState.fromHike?'à la rando':'à la carte'}`
+  goScreen('confirm')
+}
+
+function confirmBack(){ goScreen(addState.fromHike?'hike':'map') }
+
+// ═══════════════════════════════════════════════════════════════════
+// HIKE
+// ═══════════════════════════════════════════════════════════════════
+let hikeMap=null, hikeMapInit=false, hikeUserMarker=null
+let gpsWatch=null, polyline=null, timerInterval=null
+
+function initHikeMap(){
+  if(hikeMapInit) return
+  hikeMapInit=true
+  setTimeout(()=>{
+    hikeMap=L.map('hikemap',{center:MAP_CENTER,zoom:14,zoomControl:false,attributionControl:false})
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(hikeMap)
+    locateUser()
+  },50)
+}
+
+function toggleHike(){
+  if(S.activeSession){ stopHike() } else { startHike() }
+}
+
+function startHike(){
+  S.activeSession={id:uid(),startTime:Date.now(),track:[],wasteCount:0,ptsEarned:0}
+  save()
+  document.getElementById('hike-bar').style.display='flex'
+  document.getElementById('hike-stats').style.display='block'
+  const ab=document.getElementById('hike-add-btns')
+  ab.style.display='flex'
+  document.getElementById('hike-btn').className='btn btn-r btn-full btn-lg'
+  document.getElementById('hike-btn').textContent='⏹ Terminer la rando'
+  timerInterval=setInterval(updateHikeUI,1000)
+  startGPSWatch()
+}
+
+function stopHike(){
+  clearInterval(timerInterval)
+  if(gpsWatch!==null){ navigator.geolocation.clearWatch(gpsWatch); gpsWatch=null }
+  S.sessionCount++
+  S.kmTotal+=calcKm(S.activeSession.track)
+  S.activeSession=null
+  save(); checkBadges()
+  document.getElementById('hike-bar').style.display='none'
+  document.getElementById('hike-stats').style.display='none'
+  document.getElementById('hike-add-btns').style.display='none'
+  document.getElementById('hike-btn').className='btn btn-p btn-full btn-lg'
+  document.getElementById('hike-btn').textContent='▶ Démarrer une rando'
+  toast('🎉 Rando terminée !')
+}
+
+function startGPSWatch(){
+  if(!navigator.geolocation) return
+  gpsWatch=navigator.geolocation.watchPosition(pos=>{
+    const{latitude:lat,longitude:lng}=pos.coords
+    if(!S.activeSession) return
+    S.activeSession.track.push([lat,lng])
+    placeUserMarker(lat,lng,hikeMap,true)
+    if(hikeMap) hikeMap.setView([lat,lng])
+    if(S.activeSession.track.length>1){
+      if(polyline) polyline.remove()
+      polyline=L.polyline(S.activeSession.track,{color:'#2D6A4F',weight:3,opacity:.85,dashArray:'8 4'}).addTo(hikeMap)
+    }
+    save()
+  },()=>{},{enableHighAccuracy:true,maximumAge:3000})
+}
+
+function updateHikeUI(){
+  if(!S.activeSession) return
+  const el=s=>parseInt(document.getElementById(s).textContent)
+  const elapsed=Date.now()-S.activeSession.startTime
+  const m=Math.floor(elapsed/60000), se=Math.floor((elapsed%60000)/1000)
+  document.getElementById('hike-timer').textContent=`EN COURS — ${String(m).padStart(2,'0')}:${String(se).padStart(2,'0')}`
+  document.getElementById('hs-waste').textContent=S.activeSession.wasteCount
+  document.getElementById('hs-pts').textContent='+'+S.activeSession.ptsEarned
+  document.getElementById('hs-km').textContent=calcKm(S.activeSession.track).toFixed(1)
+}
+
+function calcKm(track){
+  if(!track||track.length<2) return 0
+  let t=0; for(let i=1;i<track.length;i++) t+=distM(track[i-1][0],track[i-1][1],track[i][0],track[i][1])
+  return Math.round(t/10)/100
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// LEADERBOARD
+// ═══════════════════════════════════════════════════════════════════
+const MOCK_LB=[
+  {rank:1,username:'EcoVosgien',avatar:'🦅',pts:2840,km:84},
+  {rank:2,username:'GrandBallon',avatar:'🏔',pts:2120,km:71},
+  {rank:3,username:'RandoThann',avatar:'🌿',pts:1880,km:63},
+  {rank:5,username:'ValléeVerte',avatar:'🍃',pts:720,km:19},
+]
+let lbFilter='global'
+
+function renderLead(){
+  const name=S.user?.username||'Randonneur'
+  const me={rank:4,username:name,avatar:'🥾',pts:S.points,km:Math.round(S.kmTotal*10)/10,me:true}
+  const list=lbFilter==='global'?[MOCK_LB[0],MOCK_LB[1],MOCK_LB[2],me,MOCK_LB[3]]:[me,{rank:2,username:'Marie_R',avatar:'🌸',pts:640,km:18},{rank:3,username:'Tom_Alsace',avatar:'🦊',pts:310,km:9}]
+  const maxPts=3000
+  const TRAIL=[{x:12,y:88},{x:10,y:76},{x:20,y:66},{x:15,y:54},{x:28,y:44},{x:42,y:36},{x:56,y:28},{x:68,y:36},{x:78,y:26}]
+  function tpos(p){ const n=TRAIL.length-1,idx=Math.min(p*n,n-.001),i=Math.floor(idx),t=idx-i,a=TRAIL[i],b=TRAIL[Math.min(i+1,n)]; return{x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t} }
+
+  const avatarsHTML=list.filter(p=>p.pts!==undefined).map(p=>{
+    const pos=tpos(Math.min(p.pts/maxPts,1))
+    return `<div style="position:absolute;left:${pos.x}%;top:${pos.y}%;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;z-index:${p.me?10:5}">
+      <div style="width:${p.me?30:22}px;height:${p.me?30:22}px;border-radius:50%;background:${p.me?'var(--lime)':'#fff'};border:${p.me?3:2}px solid ${p.me?'var(--forest)':'var(--border)'};display:flex;align-items:center;justify-content:center;font-size:${p.me?15:11}px;box-shadow:${p.me?'0 2px 8px #2D6A4F44':'0 1px 4px rgba(0,0,0,.2)'}">${p.avatar}</div>
+      <div style="background:${p.me?'var(--forest)':'#fff'};color:${p.me?'#fff':'var(--dim)'};border-radius:6px;padding:1px 5px;font-size:7px;font-weight:700;margin-top:1px;border:1px solid ${p.me?'var(--forest)':'var(--border)'};white-space:nowrap">#${p.rank}${p.me?' Toi':''}</div>
+    </div>`
+  }).join('')
+
+  const listHTML=list.map((p,i)=>`
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;background:${p.me?'#2D6A4F12':'#fff'};border:1px solid ${p.me?'#2D6A4F44':'var(--border)'};margin-bottom:8px">
+      <div style="font-size:20px;width:28px;text-align:center">${i<3?['🥇','🥈','🥉'][i]:'#'+p.rank}</div>
+      <div style="font-size:24px">${p.avatar}</div>
+      <div style="flex:1"><div style="font-weight:${p.me?700:500};font-size:14px">${p.me?p.username+' (Toi)':p.username}</div><div style="font-size:12px;color:var(--muted)">${p.km} km</div></div>
+      <div style="text-align:right"><div style="font-weight:800;font-size:15px;color:${p.me?'var(--forest)':'var(--text)'}">${p.pts}</div><div style="font-size:10px;color:var(--muted)">pts</div></div>
+    </div>`).join('')
+
+  document.getElementById('lead-content').innerHTML=`
+    <div style="padding:14px 14px 4px"><h1 style="font-size:20px;font-weight:800">Sentier des Champions</h1><p style="font-size:13px;color:var(--muted)">Semaine en cours</p></div>
+    <div style="display:flex;gap:8px;padding:8px 14px">
+      ${['global','friends','local'].map(f=>`<button onclick="lbFilter='${f}';renderLead()" style="padding:6px 14px;border-radius:20px;border:none;font-size:13px;font-weight:600;background:${lbFilter===f?'var(--forest)':'var(--card)'};color:${lbFilter===f?'#fff':'var(--dim)'};cursor:pointer">${f==='global'?'🌍 Général':f==='friends'?'👥 Amis':'📍 Vosges'}</button>`).join('')}
+    </div>
+    <div style="margin:8px 14px;position:relative;height:180px;background:linear-gradient(to bottom,#C8E0FF 0%,#A8D090 55%,#7AB060 100%);border-radius:14px;overflow:hidden;border:1px solid var(--border)">
+      <svg viewBox="0 0 100 100" style="position:absolute;inset:0;width:100%;height:100%" preserveAspectRatio="none">
+        ${[5,14,22,35,50,64,72,84,92].map(x=>`<g><rect x="${x-.5}" y="56" width="1" height="6" fill="#4A6830"/><polygon points="${x},48 ${x-3},56 ${x+3},56" fill="#5A8038"/></g>`).join('')}
+        <polygon points="55,55 70,18 85,55" fill="#8AA878" opacity=".7"/>
+        <path d="${TRAIL.map((p,i)=>(i?'L':'M')+p.x+','+p.y).join(' ')}" fill="none" stroke="#D4A820" stroke-width="2.5" stroke-linecap="round"/>
+        <text x="6" y="96" font-size="7">🚩</text><text x="74" y="24" font-size="7">🏔</text>
+      </svg>
+      ${avatarsHTML}
+    </div>
+    <button onclick="goScreen('prog')" style="display:flex;align-items:center;justify-content:space-between;margin:0 14px 10px;padding:10px 14px;background:var(--forest);border-radius:12px;border:none;width:calc(100% - 28px);cursor:pointer">
+      <div style="color:#fff;text-align:left"><div style="font-weight:700;font-size:14px">Mon Chemin de progression</div><div style="font-size:12px;color:#74C69D">${S.points} pts · Badges & récompenses →</div></div>
+      <span style="font-size:22px">🛤</span>
+    </button>
+    <div style="padding:0 14px">${listHTML}</div>`
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CHALLENGES
+// ═══════════════════════════════════════════════════════════════════
+let chalTab='active'
+const CHALS=[
+  {id:'c1',type:'global',icon:'🌍',title:'Challenge Avril des Vosges',sponsor:'Patagonia',desc:'Collectivement, ramassons 500 déchets dans le PNR',progress:312,total:500,endsAt:'30 avr.',reward:'Bon Patagonia 15€',color:'#2D6A4F',participants:84},
+  {id:'c2',type:'duel',icon:'⚔️',title:'Duel de la semaine',vs:'Marie_R',vsAvatar:'🌸',myPts:42,theirPts:38,endsAt:'dim. soir',reward:'+50 XP',color:'#2850A0',winning:true},
+  {id:'c3',type:'global',icon:'☠️',title:'Déchets dangereux',desc:'Signalez 30 déchets dangereux sur les sentiers',progress:7,total:30,endsAt:'15 mai',reward:'Badge Démineur',color:'#CC3333',participants:31},
+]
+
+function renderChal(){
+  const tabs=['active','friends','available']
+  const tabBtns=tabs.map(t=>`<button onclick="chalTab='${t}';renderChal()" style="padding:6px 14px;border-radius:20px;border:none;font-size:13px;font-weight:600;background:${chalTab===t?'var(--forest)':'var(--card)'};color:${chalTab===t?'#fff':'var(--dim)'};cursor:pointer">${t==='active'?'En cours':t==='friends'?'👥 Défier':'Disponibles'}</button>`).join('')
+
+  let body=''
+  if(chalTab==='active'){
+    body=CHALS.map(ch=>`
+      <div style="border-radius:14px;overflow:hidden;border:1.5px solid ${ch.color}44;margin-bottom:12px;box-shadow:0 2px 8px ${ch.color}18">
+        <div style="background:${ch.color};padding:10px 14px;display:flex;align-items:center;gap:10px">
+          <span style="font-size:22px">${ch.icon}</span>
+          <div style="flex:1"><div style="font-weight:700;font-size:14px;color:#fff">${ch.title}</div>${ch.sponsor?`<div style="font-size:11px;color:rgba(255,255,255,.8)">Par ${ch.sponsor}</div>`:''}${ch.vs?`<div style="font-size:11px;color:rgba(255,255,255,.8)">vs ${ch.vs} ${ch.vsAvatar}</div>`:''}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.8)">${ch.endsAt}</div>
+        </div>
+        <div style="background:${ch.color}10;padding:12px 14px">
+          ${ch.desc?`<div style="font-size:13px;color:var(--text);margin-bottom:10px">${ch.desc}</div>`:''}
+          ${ch.progress!==undefined?`<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px"><span>${ch.progress}/${ch.total}</span><span>${Math.round(ch.progress/ch.total*100)}%</span></div>${pbar(ch.progress,ch.total,ch.color)}${ch.participants?`<div style="font-size:11px;color:var(--muted);margin-top:4px">👥 ${ch.participants} participants</div>`:''}`:'' }
+          ${ch.myPts!==undefined?`<div style="display:flex;align-items:center;gap:16px;justify-content:center;margin-bottom:8px"><div style="text-align:center"><div style="font-size:28px;font-weight:900;color:${ch.winning?'var(--forest)':'var(--dim)'}">${ch.myPts}</div><div style="font-size:11px;color:var(--muted)">Toi</div></div><div style="font-size:18px;color:var(--dim)">⚔️</div><div style="text-align:center"><div style="font-size:28px;font-weight:900;color:${!ch.winning?'var(--forest)':'var(--dim)'}">${ch.theirPts}</div><div style="font-size:11px;color:var(--muted)">${ch.vs}</div></div></div>`:'' }
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            ${tag('🎁 '+ch.reward,'#E0902022','var(--amber)')}
+            ${ch.winning!==undefined?`<b style="color:${ch.winning?'var(--forest)':'var(--amber)'}">🔥 ${ch.winning?'Tu mènes !':'Remonte !'}</b>`:''}
+          </div>
+        </div>
+      </div>`).join('')
+  } else if(chalTab==='friends'){
+    body=`<p style="font-size:14px;color:var(--dim);margin-bottom:12px">Défie un ami sur 7 jours — qui ramasse le plus ?</p>
+    ${['Marie_R 🌸','Tom_Alsace 🦊','JulietteM 🌻'].map(f=>`<div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;background:#fff;border:1px solid var(--border);margin-bottom:8px">
+      <div style="flex:1;font-weight:500;font-size:14px">${f}</div>
+      <button onclick="toast('✉️ Défi envoyé !')" class="btn btn-p btn-sm">⚔️ Défier</button>
+    </div>`).join('')}
+    <div onclick="toast('🔗 Lien copié !')" style="text-align:center;padding:12px;background:#2850A012;border-radius:12px;border:1.5px dashed #2850A055;color:#2850A0;font-weight:600;font-size:14px;cursor:pointer">+ Inviter un ami par lien</div>`
+  } else {
+    body=[
+      {icon:'🚵',title:'VTT Propre',desc:'Ramasse pendant 3 sorties VTT',reward:'+100 XP',color:'#108080'},
+      {icon:'🏫',title:'Eco-École',desc:'Inviter un ado à rejoindre',reward:'Badge Mentor',color:'#6030A0'},
+    ].map(ch=>`<div style="display:flex;gap:14px;padding:14px;border-radius:14px;background:#fff;border:1.5px solid ${ch.color}55;margin-bottom:10px">
+      <span style="font-size:28px">${ch.icon}</span>
+      <div style="flex:1"><div style="font-weight:700;font-size:14px">${ch.title}</div><div style="font-size:13px;color:var(--dim);margin-top:2px">${ch.desc}</div>${tag('🎁 '+ch.reward,ch.color+'22',ch.color)}</div>
+      <button onclick="toast('✅ Défi rejoint !')" class="btn btn-sm" style="background:${ch.color};color:#fff;border:none;align-self:center">Rejoindre</button>
+    </div>`).join('')
+  }
+
+  document.getElementById('chal-content').innerHTML=`
+    <div style="padding:14px 14px 4px"><h1 style="font-size:20px;font-weight:800">⚔️ Défis</h1></div>
+    <div style="display:flex;gap:8px;padding:8px 14px">${tabBtns}</div>
+    <div style="padding:8px 14px">${body}</div>`
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// GAMES HUB
+// ═══════════════════════════════════════════════════════════════════
+const GAMES_DEF=[
+  {id:'gtri',icon:'♻️',title:'Trier les déchets',desc:'Classe chaque déchet dans la bonne poubelle.',color:'var(--forest)',pts:'+10 pts/bonne réponse',plays:'1 204'},
+  {id:'gquiz',icon:'🧠',title:'Quiz Écologie',desc:'5 questions sur le recyclage, la nature et le plogging.',color:'var(--purple)',pts:'+5 pts/bonne réponse',plays:'876'},
+  {id:'gspot',icon:'🔍',title:'Trouve les déchets',desc:'Repère les déchets cachés dans la scène nature.',color:'var(--teal)',pts:'+10 pts/déchet',plays:'2 341'},
+]
+
+function renderGames(){
+  const today=new Date().toISOString().slice(0,10)
+  const done=S.dailyGames.date===today?S.dailyGames.done:[]
+  const allDone=GAMES_DEF.every(g=>done.includes(g.id))
+
+  document.getElementById('games-content').innerHTML=`
+    <div style="padding:14px 14px 4px"><h1 style="font-size:20px;font-weight:800">🎮 Mini-Jeux</h1><p style="font-size:13px;color:var(--muted)">Joue, apprends, cumule des points</p></div>
+    <div style="margin:8px 14px;padding:12px 14px;background:${allDone?'#52B78822':'#C8981822'};border-radius:14px;border:1.5px solid ${allDone?'var(--leaf)':'var(--gold)'}55;display:flex;align-items:center;gap:12px">
+      <span style="font-size:24px">⭐</span>
+      <div style="flex:1"><div style="font-weight:700;font-size:14px">${allDone?'✅ Défi du jour complété !':'Défi du jour'}</div><div style="font-size:12px;color:var(--dim);margin-top:2px">${allDone?'Tu as gagné +50 pts bonus !':'Fais les 3 jeux → +50 pts bonus'}</div></div>
+      <div style="display:flex;gap:4px">${GAMES_DEF.map(g=>`<div style="width:22px;height:22px;border-radius:50%;background:${done.includes(g.id)?'var(--gold)':'var(--card)'};border:1.5px solid ${done.includes(g.id)?'var(--gold)':'var(--border)'};display:flex;align-items:center;justify-content:center;font-size:11px">${done.includes(g.id)?'✓':g.icon}</div>`).join('')}</div>
+    </div>
+    <div style="padding:0 14px">
+      ${GAMES_DEF.map(g=>`
+        <button onclick="goScreen('${g.id}')" style="display:flex;gap:14px;padding:14px;background:#fff;border-radius:16px;border:1.5px solid ${g.color}33;text-align:left;cursor:pointer;width:100%;margin-bottom:12px;box-shadow:0 2px 8px ${g.color}14;position:relative">
+          ${done.includes(g.id)?`<div style="position:absolute;top:8px;right:10px;background:var(--leaf)22;color:var(--forest);border-radius:10px;padding:2px 8px;font-size:11px;font-weight:700">✓ Fait</div>`:''}
+          <div style="width:52px;height:52px;border-radius:14px;background:${g.color};display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0">${g.icon}</div>
+          <div style="flex:1"><div style="font-weight:700;font-size:15px">${g.title}</div><div style="font-size:13px;color:var(--dim);margin-top:3px;line-height:1.4">${g.desc}</div><div style="display:flex;gap:8px;margin-top:8px">${tag(g.pts,g.color+'22',g.color)}<span style="font-size:11px;color:var(--muted)">🎮 ${g.plays} parties</span></div></div>
+          <div style="align-self:center;font-size:20px;color:var(--muted)">›</div>
+        </button>`).join('')}
+      <div style="padding:14px;border-radius:16px;background:var(--card);border:1.5px dashed var(--border);text-align:center"><div style="font-size:28px;margin-bottom:6px">🔮</div><div style="font-weight:600;font-size:14px">Rando Runner</div><div style="font-size:12px;color:var(--muted);margin-top:3px">Bientôt disponible</div></div>
+    </div>`
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// GAME TRI
+// ═══════════════════════════════════════════════════════════════════
+const TRI_ITEMS=[
+  {icon:'🧴',label:'Flacon shampoing',answer:'Plastique'},{icon:'📰',label:'Journal',answer:'Papier'},
+  {icon:'🍾',label:'Bouteille de vin',answer:'Verre'},{icon:'🥫',label:'Boîte de conserve',answer:'Métal'},
+  {icon:'🍌',label:'Peau de banane',answer:'Compost'},{icon:'☕',label:'Capsule café',answer:'Métal'},
+  {icon:'🎁',label:'Papier cadeau',answer:'Papier'},{icon:'🧃',label:'Brique de jus',answer:'Plastique'},
+]
+const TRI_BINS=[{id:'Plastique',icon:'♻️'},{id:'Papier',icon:'📦'},{id:'Verre',icon:'💎'},{id:'Métal',icon:'⚙️'},{id:'Compost',icon:'🌱'}]
+let triState={cur:0,score:0,feedback:null}
+
+function startGameTri(){
+  triState={cur:0,score:0,feedback:null}
+  renderTri()
+}
+function renderTri(){
+  const el=document.getElementById('gtri-content')
+  const item=TRI_ITEMS[triState.cur]
+  if(!item){ finishTri(); return }
+  el.innerHTML=`
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border)">
+      <button onclick="goScreen('games')" style="background:none;border:none;font-size:22px;color:var(--dim);cursor:pointer">←</button>
+      <div style="flex:1;font-weight:700;font-size:15px">♻️ Trier les déchets</div>
+      <div style="font-weight:800;font-size:15px;color:var(--forest)">⚡ ${triState.score}</div>
+    </div>
+    <div style="padding:8px 14px"><div style="height:6px;background:var(--card);border-radius:4px;overflow:hidden"><div style="width:${(triState.cur/TRI_ITEMS.length)*100}%;height:100%;background:var(--leaf);border-radius:4px;transition:width .3s"></div></div><div style="font-size:11px;color:var(--muted);margin-top:4px">${triState.cur+1} / ${TRI_ITEMS.length}</div></div>
+    <div style="margin:8px 14px;padding:24px 14px;border-radius:16px;text-align:center;background:${triState.feedback?(triState.feedback.correct?'#52B78822':'#CC333318'):'var(--surface)'};border:2px solid ${triState.feedback?(triState.feedback.correct?'var(--leaf)':'var(--red)'):'var(--border)'};transition:all .2s">
+      <div style="font-size:52px">${item.icon}</div>
+      <div style="font-weight:700;font-size:16px;margin-top:10px">${item.label}</div>
+      ${triState.feedback?`<div style="margin-top:8px;font-weight:700;color:${triState.feedback.correct?'var(--forest)':'var(--red)'}">${triState.feedback.correct?'✓ Correct !':'✗ C\'était : '+item.answer}</div>`:''}
+    </div>
+    <div style="padding:4px 14px"><div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;text-align:center;margin-bottom:10px">DANS QUELLE POUBELLE ?</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        ${TRI_BINS.map(b=>`<button onclick="triBin('${b.id}')" style="padding:12px 8px;border-radius:12px;background:${triState.feedback?.chosen===b.id?(triState.feedback.correct?'#52B78833':'#CC333322'):'#fff'};border:1.5px solid ${triState.feedback?.chosen===b.id?(triState.feedback.correct?'var(--leaf)':'var(--red)'):'var(--border)'};display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:600;cursor:pointer">${b.icon} ${b.id}</button>`).join('')}
+      </div>
+    </div>`
+}
+function triBin(bin){
+  if(triState.feedback) return
+  const correct=bin===TRI_ITEMS[triState.cur].answer
+  triState.feedback={correct,chosen:bin}
+  if(correct) triState.score+=10
+  renderTri()
+  setTimeout(()=>{ triState.feedback=null; triState.cur++; renderTri() },850)
+}
+function finishTri(){
+  saveGame('tri',triState.score,Math.floor(triState.score/2))
+  document.getElementById('gtri-content').innerHTML=gameEnd('♻️','Trier les déchets',triState.score,TRI_ITEMS.length*10,'tri','var(--forest)')
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// GAME QUIZ
+// ═══════════════════════════════════════════════════════════════════
+const QUIZ_Q=[
+  {q:"Combien de temps met une bouteille plastique à se décomposer ?",a:["10 ans","100 ans","450 ans","1 000 ans"],c:2,expl:"Entre 400 et 450 ans dans la nature."},
+  {q:"Quel % des déchets en forêt sont du plastique ?",a:["25%","40%","55%","70%"],c:1,expl:"Environ 40% des déchets sauvages en milieu naturel."},
+  {q:"Le plogging (ramasser en courant) est né dans quel pays ?",a:["France","Norvège","Suède","Finlande"],c:2,expl:"Inventé en Suède par Erik Ahlström vers 2016."},
+  {q:"1 mégot de cigarette peut polluer jusqu'à :",a:["1 L","10 L","50 L","500 L"],c:3,expl:"Un mégot peut polluer jusqu'à 500 L d'eau."},
+  {q:"Le coût annuel des déchets sauvages en France est estimé à :",a:["10 M€","100 M€","420 M€","1 Md€"],c:2,expl:"Ministère Transition Écologique : 340–420 M€/an."},
+]
+let quizState={q:0,score:0,answered:null}
+
+function startGameQuiz(){
+  quizState={q:0,score:0,answered:null}
+  renderQuiz()
+}
+function renderQuiz(){
+  const el=document.getElementById('gquiz-content')
+  const curr=QUIZ_Q[quizState.q]
+  if(!curr){ finishQuiz(); return }
+  el.innerHTML=`
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border)">
+      <button onclick="goScreen('games')" style="background:none;border:none;font-size:22px;color:var(--dim);cursor:pointer">←</button>
+      <div style="flex:1;font-weight:700;font-size:15px">🧠 Quiz Écologie</div>
+      <div style="font-weight:800;font-size:15px;color:var(--purple)">⚡ ${quizState.score}</div>
+    </div>
+    <div style="padding:8px 14px"><div style="height:6px;background:var(--card);border-radius:4px;overflow:hidden"><div style="width:${(quizState.q/QUIZ_Q.length)*100}%;height:100%;background:var(--purple);border-radius:4px"></div></div><div style="font-size:11px;color:var(--muted);margin-top:4px">Question ${quizState.q+1} / ${QUIZ_Q.length}</div></div>
+    <div style="margin:8px 14px;padding:18px 14px;border-radius:14px;background:var(--purple)12;border:1.5px solid var(--purple)33"><div style="font-weight:700;font-size:16px;line-height:1.4">${curr.q}</div></div>
+    <div style="padding:4px 14px;display:flex;flex-direction:column;gap:8px;overflow-y:auto">
+      ${curr.a.map((a,i)=>{
+        let bg='#fff',brd='var(--border)',col='var(--text)'
+        if(quizState.answered!==null){ if(i===curr.c){bg='#52B78833';brd='var(--leaf)';col='var(--forest)'}else if(i===quizState.answered&&i!==curr.c){bg='#CC333322';brd='var(--red)';col='var(--red)'} }
+        return `<button onclick="quizAnswer(${i})" style="padding:14px;border-radius:12px;background:${bg};border:1.5px solid ${brd};text-align:left;font-size:14px;font-weight:500;color:${col};cursor:${quizState.answered!==null?'default':'pointer'};transition:all .2s">${quizState.answered!==null&&i===curr.c?'✓ ':quizState.answered===i&&i!==curr.c?'✗ ':''}${a}</button>`
+      }).join('')}
+    </div>
+    ${quizState.answered!==null?`<div style="margin:10px 14px;padding:12px 14px;border-radius:12px;background:#FFF8E1;border:1px dashed #F0C040;font-size:13px;color:#806020;line-height:1.5">💡 ${curr.expl}</div>`:''}
+  `
+}
+function quizAnswer(idx){
+  if(quizState.answered!==null) return
+  const correct=idx===QUIZ_Q[quizState.q].c
+  quizState.answered=idx
+  if(correct) quizState.score+=10
+  renderQuiz()
+  setTimeout(()=>{ quizState.answered=null; quizState.q++; renderQuiz() },1300)
+}
+function finishQuiz(){
+  saveGame('quiz',quizState.score,Math.floor(quizState.score/2))
+  document.getElementById('gquiz-content').innerHTML=gameEnd('🧠','Quiz Écologie',quizState.score,QUIZ_Q.length*10,'quiz','var(--purple)')
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// GAME SPOT
+// ═══════════════════════════════════════════════════════════════════
+const SPOT_ITEMS=[
+  {id:1,x:15,y:18,icon:'🌿',good:true},{id:2,x:62,y:14,icon:'🧴',good:false},
+  {id:3,x:38,y:52,icon:'🦋',good:true},{id:4,x:76,y:38,icon:'🥫',good:false},
+  {id:5,x:20,y:68,icon:'🌸',good:true},{id:6,x:54,y:62,icon:'📦',good:false},
+  {id:7,x:82,y:70,icon:'🦔',good:true},{id:8,x:44,y:28,icon:'☠️',good:false},
+  {id:9,x:8,y:42,icon:'🍄',good:true},{id:10,x:70,y:78,icon:'🍾',good:false},
+]
+let spotTapped=new Set()
+
+function startGameSpot(){
+  spotTapped=new Set()
+  renderSpot()
+}
+function renderSpot(){
+  const waste=SPOT_ITEMS.filter(i=>!i.good)
+  const found=waste.filter(i=>spotTapped.has(i.id)).length
+  const fa=SPOT_ITEMS.filter(i=>i.good&&spotTapped.has(i.id)).length
+  const score=Math.max(0,found*10-fa*5)
+  document.getElementById('gspot-content').innerHTML=`
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border)">
+      <button onclick="goScreen('games')" style="background:none;border:none;font-size:22px;color:var(--dim);cursor:pointer">←</button>
+      <div style="flex:1;font-weight:700;font-size:15px">🔍 Trouve les déchets</div>
+      <div style="font-weight:800;font-size:15px;color:var(--teal)">🗑 ${found}/${waste.length}</div>
+    </div>
+    <div style="padding:6px 14px 4px;font-size:13px;color:var(--dim);text-align:center">Tape sur les déchets — laisse la nature tranquille !</div>
+    <div style="margin:6px 14px;flex:1" class="gscene" style="min-height:240px">
+      <div style="position:relative;height:260px;background:linear-gradient(to bottom,#A8D890 0%,#7AB060 55%,#5A9040 100%)">
+        <svg style="position:absolute;bottom:0;left:0;width:100%" height="60" viewBox="0 0 400 60" preserveAspectRatio="none">
+          ${[20,60,100,160,220,280,340,380].map((x,i)=>`<g><rect x="${x-2}" y="32" width="4" height="28" fill="#4A6830"/><polygon points="${x},8 ${x-12},32 ${x+12},32" fill="${i%2===0?'#5A8038':'#4A7030'}"/></g>`).join('')}
+        </svg>
+        ${SPOT_ITEMS.map(item=>`
+          <button onclick="spotTap(${item.id})" style="position:absolute;left:${item.x}%;top:${item.y}%;transform:translate(-50%,-50%);background:${spotTapped.has(item.id)?(item.good?'#CC333344':'#52B78855'):'transparent'};border:${spotTapped.has(item.id)?`2px solid ${item.good?'var(--red)':'var(--leaf)'}`:'none'};border-radius:50%;width:46px;height:46px;cursor:${spotTapped.has(item.id)?'default':'pointer'};display:flex;align-items:center;justify-content:center;font-size:${spotTapped.has(item.id)?20:28}px;filter:${spotTapped.has(item.id)?'opacity(.4)':'none'};transition:all .2s">
+            ${spotTapped.has(item.id)?(item.good?'❌':'✓'):item.icon}
+          </button>`).join('')}
+      </div>
+    </div>
+    <div style="padding:0 14px 14px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:10px">
+        <span>Déchets trouvés : ${found}/${waste.length}</span>
+        <span style="color:${fa>0?'var(--red)':'var(--muted)'}">Fausses alertes : ${fa}</span>
+      </div>
+      <button onclick="finishSpot()" class="btn btn-full btn-lg" style="background:var(--teal);border:none;color:#fff;border-radius:12px">Terminer → +${score} pts</button>
+    </div>`
+}
+function spotTap(id){
+  if(spotTapped.has(id)) return
+  spotTapped=new Set([...spotTapped,id])
+  renderSpot()
+}
+function finishSpot(){
+  const waste=SPOT_ITEMS.filter(i=>!i.good)
+  const found=waste.filter(i=>spotTapped.has(i.id)).length
+  const fa=SPOT_ITEMS.filter(i=>i.good&&spotTapped.has(i.id)).length
+  const score=Math.max(0,found*10-fa*5)
+  saveGame('spot',score,Math.floor(score/2))
+  document.getElementById('gspot-content').innerHTML=gameEnd('🔍','Spot déchets',score,waste.length*10,'spot','var(--teal)')
+}
+
+function saveGame(game,score,pts){
+  const today=new Date().toISOString().slice(0,10)
+  const prev=S.dailyGames.date===today?S.dailyGames.done:[]
+  const done=prev.includes(game)?prev:[...prev,game]
+  const bonus=done.length===3&&!prev.includes('bonus')?50:0
+  const allDone=bonus>0?[...done,'bonus']:done
+  S.points+=pts+bonus
+  S.gameScores[game]=Math.max(S.gameScores[game]||0,score)
+  S.dailyGames={date:today,done:allDone}
+  checkBadges(); save()
+  if(bonus) toast('⭐ +50 pts bonus défi du jour !')
+}
+
+function gameEnd(icon,title,score,max,game,color){
+  const star=score>=max*.8?'🌟':score>=max*.5?'👍':'📚'
+  return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:40px 20px;text-align:center;height:100%">
+    <div style="font-size:48px">${icon}</div>
+    <div><h2 style="font-size:28px;font-weight:900">${score} / ${max}</h2><p style="color:var(--muted);margin-top:4px">${star}</p></div>
+    <div style="background:${color}22;color:${color};border-radius:20px;padding:6px 18px;font-weight:700;font-size:14px">+${Math.floor(score/2)} pts TrailClean gagnés</div>
+    <button onclick="goScreen('games')" class="btn btn-p btn-lg" style="background:${color}">← Retour aux jeux</button>
+    <button onclick="goScreen('g${game}')" class="btn btn-s btn-sm">Rejouer</button>
+  </div>`
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PROFILE
+// ═══════════════════════════════════════════════════════════════════
+function renderProf(){
+  const{c:cm,n:nm}=getMilestone()
+  const earnedIds=new Set(S.badges.map(b=>b.id))
+  document.getElementById('prof-content').innerHTML=`
+    <div style="background:var(--forest);padding:22px 14px 16px;display:flex;flex-direction:column;align-items:center;gap:8px">
+      <div style="font-size:52px">${S.user?.avatar||'🥾'}</div>
+      <div style="font-weight:800;font-size:18px;color:#fff">${S.user?.username||'Randonneur'}</div>
+      <div style="font-size:12px;color:#74C69D">${cm.icon} ${cm.label}</div>
+      ${nm?`<div style="width:100%;max-width:260px;margin-top:4px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:#74C69D;margin-bottom:4px"><span>${S.points} pts</span><span>${nm.pts} pts → ${nm.icon}</span></div>
+        <div style="height:6px;background:rgba(255,255,255,.2);border-radius:4px;overflow:hidden"><div style="width:${Math.min(100,(S.points/nm.pts)*100)}%;height:100%;background:var(--lime);border-radius:4px"></div></div>
+      </div>`:''}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 14px">
+      ${[['♻️',S.collectCount,'Ramassés'],['⚡',S.points,'Points'],['🥾',S.sessionCount,'Randos'],['⚠️',S.signalCount,'Signalés'],[`📍`,+(S.kmTotal.toFixed(1)),'km'],['🏅',S.badges.length,'Badges']].map(([i,v,l])=>`
+        <div style="background:#fff;border-radius:12px;padding:12px 8px;border:1px solid var(--border);text-align:center">
+          <div style="font-size:20px">${i}</div>
+          <div style="font-size:20px;font-weight:900;color:var(--forest)">${v}</div>
+          <div style="font-size:10px;color:var(--muted);font-weight:600">${l}</div>
+        </div>`).join('')}
+    </div>
+    <button onclick="goScreen('prog')" style="display:flex;align-items:center;justify-content:space-between;margin:0 14px 12px;padding:12px 14px;background:#2D6A4F12;border-radius:12px;border:1px solid #2D6A4F33;width:calc(100% - 28px);cursor:pointer">
+      <div style="text-align:left"><div style="font-weight:700;font-size:14px">Mon Chemin de progression</div><div style="font-size:12px;color:var(--muted)">Badges · Récompenses →</div></div>
+      <span style="font-size:22px">🛤</span>
+    </button>
+    <div style="padding:0 14px 12px">
+      <div class="sh" style="margin-bottom:10px">Badges (${S.badges.length}/${BADGES.length})</div>
+      ${BADGES.map(b=>`
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;background:${earnedIds.has(b.id)?'#52B78814':'var(--card)'};border:1px solid ${earnedIds.has(b.id)?'#52B78844':'var(--border)'};opacity:${earnedIds.has(b.id)?1:.5};margin-bottom:6px">
+          <span style="font-size:22px;filter:${earnedIds.has(b.id)?'none':'grayscale(100%)'}">${b.icon}</span>
+          <div style="flex:1;font-weight:500;font-size:13px">${b.label}</div>
+          ${earnedIds.has(b.id)?'<span style="color:var(--leaf);font-size:18px">✓</span>':'<span style="color:var(--muted)">🔒</span>'}
+        </div>`).join('')}
+    </div>
+    <div style="padding:0 14px 12px">
+      <div class="sh" style="margin-bottom:10px">Meilleurs scores jeux</div>
+      ${[['tri','♻️','Tri déchets'],['quiz','🧠','Quiz Écologie'],['spot','🔍','Spot déchets']].map(([id,ic,lb])=>`
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;margin-bottom:6px;background:#fff;border-radius:10px;border:1px solid var(--border)">
+          <span style="font-size:20px">${ic}</span><div style="flex:1;font-size:13px">${lb}</div>
+          <b style="color:var(--forest)">${S.gameScores[id]||0} pts</b>
+        </div>`).join('')}
+    </div>
+    <div style="padding:0 14px 24px">
+      <button onclick="logout()" class="btn btn-s btn-full">Déconnexion</button>
+    </div>`
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PROGRESS PAGE
+// ═══════════════════════════════════════════════════════════════════
+function renderProg(){
+  const{c:cm,n:nm}=getMilestone()
+  document.getElementById('prog-content').innerHTML=`
+    <div style="padding:14px 14px 4px;display:flex;align-items:center;gap:12px">
+      <button onclick="goScreen('lead')" style="background:none;border:none;font-size:22px;color:var(--dim);cursor:pointer">←</button>
+      <div><h1 style="font-size:20px;font-weight:800">Mon Chemin</h1><p style="font-size:13px;color:var(--muted)">Progression vers les récompenses</p></div>
+    </div>
+    <div style="margin:8px 14px;background:var(--forest);border-radius:16px;padding:16px;display:flex;align-items:center;gap:14px">
+      <div style="font-size:36px">🥾</div>
+      <div style="flex:1"><div style="font-size:11px;color:#74C69D;font-weight:700;letter-spacing:1px">MES POINTS</div><div style="font-size:36px;font-weight:900;color:var(--lime);line-height:1">${S.points}</div></div>
+      ${nm?`<div style="text-align:right"><div style="font-size:11px;color:#74C69D">Prochain badge</div><div style="font-size:22px">${nm.icon}</div><div style="font-size:11px;color:var(--lime);font-weight:700">dans ${nm.pts-S.points} pts</div></div>`:'<div style="color:var(--lime);font-weight:700;font-size:14px">MAX !</div>'}
+    </div>
+    <div style="padding:8px 14px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px"><span>0 pts</span><span>${MILESTONES[MILESTONES.length-1].pts} pts</span></div>
+      ${pbar(S.points,MILESTONES[MILESTONES.length-1].pts)}
+    </div>
+    <div style="padding:8px 14px">
+      ${MILESTONES.map((m,i)=>{
+        const done=S.points>=m.pts, current=nm&&nm.pts===m.pts
+        return `<div style="display:flex;gap:12px;opacity:${done||current?1:.45}">
+          <div style="display:flex;flex-direction:column;align-items:center;width:36px">
+            <div style="width:36px;height:36px;border-radius:50%;background:${done?'var(--leaf)':current?'var(--lime)':'var(--card)'};border:2.5px solid ${done||current?'var(--forest)':'var(--border)'};display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:${current?'0 0 12px var(--lime)88':'none'}">${m.icon}</div>
+            ${i<MILESTONES.length-1?`<div style="width:2px;flex:1;min-height:16px;background:${done?'var(--leaf)':'var(--border)'};margin:2px 0;border-radius:2px"></div>`:''}
+          </div>
+          <div style="flex:1;padding:8px 12px;border-radius:12px;margin-bottom:4px;background:${current?'var(--lime)22':done?'#52B78810':'var(--card)'};border:1px solid ${current?'var(--forest)55':done?'#52B78844':'var(--border)'}">
+            <div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:700;font-size:14px">${m.label}</div><div style="font-size:12px;color:var(--muted)">${m.pts} pts</div></div>
+            ${done&&!current?'<div style="font-size:12px;color:var(--leaf);margin-top:2px">✓ Obtenu</div>':''}
+            ${current?`<div style="margin-top:6px">${pbar(S.points,m.pts,'var(--lime)')}<div style="font-size:11px;color:var(--forest);margin-top:3px">${S.points} / ${m.pts} pts</div>${m.reward?tag('🎁 '+m.reward,'#E0902022','var(--amber)'):''}  </div>`:''}
+            ${!done&&!current&&m.reward?`<div style="font-size:12px;color:var(--amber);margin-top:3px">🔒 Récompense : ${m.reward}</div>`:''}
+          </div>
+        </div>`
+      }).join('')}
+    </div>`
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════════════════
+function logout(){ S.user=null; save(); location.reload() }
+
+// ═══════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('waze-overlay').addEventListener('click',function(e){ if(e.target===this) closeWaze() })
+  if(S.user){ bootApp() } else { goScreen('auth') }
+})
+</script>
+</body>
+</html>
